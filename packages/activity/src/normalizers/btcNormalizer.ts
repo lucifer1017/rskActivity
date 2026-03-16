@@ -1,5 +1,6 @@
 import type { ActivityItem, ActivityStatus } from "../types/activity";
 import type { BtcTxStatus } from "../api/btcExplorerClient";
+import { makeActivityId } from "../utils/activityId";
 
 export function normalizeBtcTxStatusToActivityItem(
   status: BtcTxStatus
@@ -14,7 +15,7 @@ export function normalizeBtcTxStatusToActivityItem(
     : "PENDING";
 
   return {
-    id: `btc:${status.txid}`,
+    id: makeActivityId("BTC", status.txid),
     type: "BITCOIN_MEMPOOL",
     status: activityStatus,
     btcTxId: status.txid,
