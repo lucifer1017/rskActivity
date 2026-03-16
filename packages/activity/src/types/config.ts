@@ -1,27 +1,21 @@
 export type NetworkName = "regtest" | "testnet" | "mainnet";
 
-export interface ActivityPollingConfig {
+export interface ActivityConfig {
+  // Network / endpoints
+  network: NetworkName;
+  powpegApiBaseUrl?: string;
+  btcExplorerBaseUrl?: string;
+
+  // Polling intervals (ms)
   pollingIntervalMs?: number;
   btcPollingIntervalMs?: number;
   powpegPollingIntervalMs?: number;
   flyoverPollingIntervalMs?: number;
-}
 
-export interface ActivityFeatureFlags {
+  // Feature flags
   enableMempoolSniffer?: boolean;
   enablePowpeg?: boolean;
   enableFlyover?: boolean;
 }
 
-export interface NetworkConfig {
-  network: NetworkName;
-  powpegApiBaseUrl?: string;
-  btcExplorerBaseUrl?: string;
-}
-
-export interface ActivityConfig extends ActivityPollingConfig, ActivityFeatureFlags {
-  network: NetworkConfig["network"];
-  powpegApiBaseUrl?: string;
-  btcExplorerBaseUrl?: string;
-}
 

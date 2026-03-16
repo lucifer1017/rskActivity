@@ -2,16 +2,17 @@ import type { ActivityItem } from "../types/activity";
 import type { ActivityConfig } from "../types/config";
 import type { BridgeNotificationEvent } from "../types/events";
 
-export interface UseBridgeNotificationsOptions extends Partial<ActivityConfig> {
+export interface UseBridgeNotificationsOptions {
   btcAddress?: string;
   rskAddress?: string;
+  config?: ActivityConfig;
   onEvent?: (event: BridgeNotificationEvent) => void;
 }
 
 export interface UseBridgeNotificationsResult {
   items: ActivityItem[];
   isLoading: boolean;
-  error: Error | null;
+  error: unknown;
   refresh: () => void;
 }
 
@@ -31,4 +32,5 @@ export function useBridgeNotifications(
     },
   };
 }
+
 
