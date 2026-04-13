@@ -1,7 +1,5 @@
 import type { ActivityItem, ActivityStatus } from "../types/activity";
 import type { BridgeNotificationEvent } from "../types/events";
-
-// Higher index = higher precedence
 const STATUS_PRECEDENCE: ActivityStatus[] = [
   "PENDING",
   "CONFIRMING",
@@ -39,14 +37,6 @@ export interface MergeResult {
   items: ActivityItem[];
   events: BridgeNotificationEvent[];
 }
-
-/**
- * Merge multiple sets of ActivityItems (e.g. BTC, PowPeg, Flyover views)
- * into a single, authoritative list, applying status precedence and
- * generating notification events for new items and status changes.
- *
- * This function is pure and does not perform any side effects.
- */
 export function mergeActivities(
   previous: ActivityItem[],
   incomingGroups: ActivityItem[][]
@@ -97,8 +87,6 @@ export function mergeActivities(
     }
   }
 
-  // Emit events based on previous snapshot -> final merged state so each item
-  // produces at most one status transition event per merge cycle.
   for (const [id, nextItem] of mergedById.entries()) {
     const prevItem = previousById.get(id);
 

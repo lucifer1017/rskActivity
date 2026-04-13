@@ -7,10 +7,6 @@ import type { PowpegStatus } from "../api/powpegClient";
 import type { FlyoverPeginStatus } from "../api/flyoverClient";
 import { makeActivityId } from "../utils/activityId";
 
-// ---------------------------------------------------------------------------
-// BTC normalizer
-// ---------------------------------------------------------------------------
-
 describe("normalizeBtcTxStatusToActivityItem", () => {
   const base: BtcTxStatus = {
     txid: "btctx1",
@@ -55,10 +51,6 @@ describe("normalizeBtcTxStatusToActivityItem", () => {
     expect(item.etaMinutes).toBeNull();
   });
 });
-
-// ---------------------------------------------------------------------------
-// PowPeg normalizer
-// ---------------------------------------------------------------------------
 
 describe("normalizePowpegStatusToActivityItem", () => {
   const base: PowpegStatus = {
@@ -106,7 +98,6 @@ describe("normalizePowpegStatusToActivityItem", () => {
       confirmations: 10,
       requiredConfirmations: 100,
     });
-    // (100 - 10) * 10 + 5 = 905
     expect(item.etaMinutes).toBe(905);
   });
 
@@ -138,10 +129,6 @@ describe("normalizePowpegStatusToActivityItem", () => {
     expect(item.rbtcAmountWei).toBe("4990000000000000");
   });
 });
-
-// ---------------------------------------------------------------------------
-// Flyover normalizer
-// ---------------------------------------------------------------------------
 
 describe("normalizeFlyoverStatusToActivityItem", () => {
   const base: FlyoverPeginStatus = {

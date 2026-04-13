@@ -14,10 +14,6 @@ import {
 } from "../api/activityFetchers";
 import type { FlyoverLiquidityProvider } from "../api/flyoverClient";
 
-// ---------------------------------------------------------------------------
-// Internal helpers
-// ---------------------------------------------------------------------------
-
 function normalizeTxIds(txIds?: string[]): string[] {
   if (!txIds || txIds.length === 0) return [];
   return Array.from(
@@ -29,60 +25,14 @@ function txIdsKey(txIds?: string[]): string {
   return normalizeTxIds(txIds).join("|");
 }
 
-// ---------------------------------------------------------------------------
-// Public types
-// ---------------------------------------------------------------------------
-
 export interface UseBridgeNotificationsOptions {
-  /**
-   * Known Bitcoin transaction hashes to track at the BTC mempool / confirmation
-   * level via a public block explorer (mempool.space compatible).
-   *
-   * Populate this list when the user initiates a bridge operation — you will
-   * have the funding BTC txid at that point.
-   */
   btcTxIds?: string[];
-
-  /**
-   * Bitcoin transaction hashes whose PowPeg bridge status should be polled.
-   * Defaults to the same list as `btcTxIds` when omitted.
-   */
   powpegBtcTxIds?: string[];
-
-  /**
-   * Optional configuration (network, API base URLs, polling intervals,
-   * feature flags). All fields have sensible defaults.
-   */
   config?: ActivityConfig;
-
-  /**
-   * Global polling interval override in milliseconds.
-   * Takes precedence over `config.pollingIntervalMs` when provided.
-   */
   pollingIntervalMs?: number;
-
-  /**
-   * Callback invoked for every bridge notification event emitted by the
-   * polling manager. Wire this to browser toasts / notification APIs.
-   */
   onEvent?: (event: BridgeNotificationEvent) => void;
-
-  /**
-   * Flyover peg-in tracking options.
-   * Provide a Flyover LP descriptor and the quote hashes obtained when the
-   * user accepted a Flyover quote to enable Flyover status polling.
-   */
   flyover?: {
-    /**
-     * LP descriptor — compatible with the `LiquidityProvider` type from
-     * @rsksmart/flyover-sdk. The SDK returns this object after calling
-     * `Flyover.getAvailableLiquidityProviders()`.
-     */
     provider: FlyoverLiquidityProvider;
-    /**
-     * Quote hashes from accepted Flyover peg-in quotes.
-     * Persist these after calling `Flyover.acceptPeginQuote()`.
-     */
     quoteHashes?: string[];
   };
 }
@@ -94,10 +44,6 @@ export interface UseBridgeNotificationsResult {
   refresh: () => void;
 }
 
-// ---------------------------------------------------------------------------
-// Hook
-// ---------------------------------------------------------------------------
-
 export function useBridgeNotifications(
   options: UseBridgeNotificationsOptions
 ): UseBridgeNotificationsResult {
@@ -108,14 +54,10 @@ export function useBridgeNotifications(
   const managerRef = useRef<PollingManager | null>(null);
   const onEventRef = useRef<UseBridgeNotificationsOptions["onEvent"]>();
 
-  // Keep onEvent ref current without causing polling manager re-creation.
   useEffect(() => {
     onEventRef.current = options.onEvent;
   }, [options.onEvent]);
 
-  // ---------------------------------------------------------------------------
-  // Resolved config — memoized on primitive config fields to stay stable.
-  // ---------------------------------------------------------------------------
   const resolvedConfig = useMemo(() => {
     const base = options.config ?? {};
     const merged =
@@ -137,10 +79,6 @@ export function useBridgeNotifications(
     options.pollingIntervalMs,
   ]);
 
-  // ---------------------------------------------------------------------------
-  // Stable txid arrays — serialised to string keys so the main effect only
-  // re-runs when the actual set of txids changes, not on every render.
-  // ---------------------------------------------------------------------------
   const btcTxIdsKey = txIdsKey(options.btcTxIds);
   const powpegTxIdsKey = txIdsKey(
     options.powpegBtcTxIds ?? options.btcTxIds
@@ -160,9 +98,6 @@ export function useBridgeNotifications(
     [flyoverHashesKey]
   );
 
-  // ---------------------------------------------------------------------------
-  // Polling manager — re-created only when sources or resolved config change.
-  // ---------------------------------------------------------------------------
   useEffect(() => {
     const fetchBtc =
       resolvedConfig.enableMempoolSniffer && btcTxIds.length > 0
@@ -239,9 +174,6 @@ export function useBridgeNotifications(
     resolvedConfig.btcPollingIntervalMs,
     resolvedConfig.powpegPollingIntervalMs,
     resolvedConfig.flyoverPollingIntervalMs,
-    // Use the LP URL string (primitive) as the dependency, not the provider
-    // object reference, which would trigger a new manager on every render even
-    // when the URL has not changed.
     options.flyover?.provider?.apiBaseUrl,
   ]);
 

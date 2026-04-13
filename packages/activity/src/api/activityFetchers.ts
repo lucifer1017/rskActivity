@@ -10,21 +10,10 @@ import {
   type BtcExplorerClientOptions,
 } from "./btcExplorerClient";
 import { normalizeBtcTxStatusToActivityItem } from "../normalizers/btcNormalizer";
-import {
-  fetchFlyoverPeginStatusByQuoteHash,
-  type FlyoverClientOptions,
-} from "./flyoverClient";
+import { fetchFlyoverPeginStatusByQuoteHash, type FlyoverClientOptions } from "./flyoverClient";
 import { normalizeFlyoverStatusToActivityItem } from "../normalizers/flyoverNormalizer";
 
-// ---------------------------------------------------------------------------
-// PowPeg fetcher
-// ---------------------------------------------------------------------------
-
 export interface PowpegFetchConfig {
-  /**
-   * Bitcoin transaction hashes to track via the PowPeg / 2wp-api.
-   * These are typically the same txids used for BTC mempool tracking.
-   */
   btcTxIds: string[];
   clientOptions: PowpegClientOptions;
 }
@@ -50,14 +39,7 @@ export function createPowpegFetchActivities(
   };
 }
 
-// ---------------------------------------------------------------------------
-// BTC mempool sniffer fetcher
-// ---------------------------------------------------------------------------
-
 export interface BtcFetchConfig {
-  /**
-   * Bitcoin transaction hashes to track at the mempool / confirmation level.
-   */
   txIds: string[];
   clientOptions?: BtcExplorerClientOptions;
 }
@@ -82,17 +64,8 @@ export function createBtcFetchActivities(
   };
 }
 
-// ---------------------------------------------------------------------------
-// Flyover fetcher
-// ---------------------------------------------------------------------------
-
 export interface FlyoverFetchConfig {
   clientOptions: FlyoverClientOptions;
-  /**
-   * Quote hashes obtained when the user accepted a Flyover peg-in quote.
-   * The consuming application is responsible for persisting these after
-   * initiating the Flyover transaction via the SDK or any other method.
-   */
   quoteHashes: string[];
 }
 

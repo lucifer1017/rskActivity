@@ -1,17 +1,6 @@
 import axios, { type AxiosInstance } from "axios";
-
-/**
- * Minimal LP descriptor compatible with @rsksmart/flyover-sdk's LiquidityProvider.
- *
- * The SDK's full LiquidityProvider includes `provider` (LP RSK address) and
- * `apiBaseUrl` (LP REST server URL). We only need `apiBaseUrl` to call the
- * status endpoint, but we accept the full SDK object via structural typing —
- * callers can pass a raw LiquidityProvider without any wrapping.
- */
 export interface FlyoverLiquidityProvider {
-  /** RSK address of the Liquidity Provider. */
   provider: string;
-  /** Base URL of the LP REST API (e.g. https://lps.testnet.rootstock.io). */
   apiBaseUrl: string;
 }
 
@@ -25,33 +14,15 @@ export interface FlyoverClientOptions {
 
 export interface FlyoverPeginStatus {
   quoteHash: string;
-  /** Raw LPS state string, e.g. "WaitingForDeposit", "CallForUserSucceeded". */
   rawState: string;
   simpleStatus: FlyoverSimpleStatus;
-  /** User's BTC funding transaction hash. */
   btcTxId?: string;
-  /** RSK transaction hash where the LP delivered RBTC to the user. */
   rskTxId?: string;
   btcAddress?: string;
   rskAddress?: string;
-  /** Transfer value in wei (as string). */
   rbtcAmountWei?: string;
-  /** Number of BTC confirmations required before the LP acts. */
   requiredConfirmations?: number;
 }
-
-/**
- * Derive a simplified status from the LPS raw state string.
- *
- * States per the Flyover LPS OpenAPI spec (RetainedPeginQuoteDTO.state):
- *  - WaitingForDeposit              → PENDING  (waiting for user BTC deposit)
- *  - WaitingForDepositConfirmations → PENDING  (BTC sent, accumulating confs)
- *  - CallForUserSucceeded           → SUCCESS  (RBTC delivered to user)
- *  - RegisterPegInSucceeded         → SUCCESS  (peg-in registered)
- *  - TimeForDepositElapsed          → EXPIRED  (deposit window closed)
- *  - CallForUserFailed              → FAILED   (LP call failed)
- *  - RegisterPegInFailed            → FAILED   (registration failed)
- */
 function deriveSimpleStatus(state: string): FlyoverSimpleStatus {
   if (state === "CallForUserSucceeded" || state === "RegisterPegInSucceeded") {
     return "SUCCESS";
@@ -65,17 +36,6 @@ function deriveSimpleStatus(state: string): FlyoverSimpleStatus {
   return "PENDING";
 }
 
-/**
- * Fetch peg-in status for a given quote hash from the LP server REST API.
- *
- * Calls: GET {apiBaseUrl}/pegin/status?quoteHash={hash}
- * Response shape follows the LPS OpenAPI PeginQuoteStatusDTO:
- *   { status: RetainedPeginQuoteDTO, detail: PeginQuoteDTO, creationData: ... }
- *
- * This function has zero dependency on @rsksmart/flyover-sdk — only axios.
- * The SDK is designed for initiating transactions; for status polling a
- * direct REST call is simpler and avoids all heavy cryptographic dependencies.
- */
 export async function fetchFlyoverPeginStatusByQuoteHash(
   quoteHash: string,
   options: FlyoverClientOptions
@@ -93,8 +53,6 @@ export async function fetchFlyoverPeginStatusByQuoteHash(
   } catch (err: unknown) {
     if (axios.isAxiosError(err)) {
       const status = err.response?.status;
-      // 404 = quote not found / not accepted yet; 400 = bad request — both are
-      // treated as "no data yet" rather than a hard error.
       if (status === 404 || status === 400) return null;
     }
     throw err;

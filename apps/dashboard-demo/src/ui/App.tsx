@@ -7,10 +7,6 @@ import {
   type FlyoverLiquidityProvider,
 } from "@rootstock-kits/activity";
 
-// ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
-
 const NETWORK = "testnet" as const;
 
 const EXPLORER_BTC =
@@ -23,12 +19,7 @@ const EXPLORER_RSK =
     ? "https://explorer.rsk.co/tx"
     : "https://explorer.testnet.rsk.co/tx";
 
-// BTC txids are 64 lowercase hex chars.
 const BTC_TXID_RE = /^[0-9a-fA-F]{64}$/;
-
-// ---------------------------------------------------------------------------
-// Utilities
-// ---------------------------------------------------------------------------
 
 function shortenTxId(txid: string): string {
   if (txid.length <= 16) return txid;
@@ -58,9 +49,6 @@ function formatTime(iso: string): string {
   });
 }
 
-// ---------------------------------------------------------------------------
-// Status step definitions
-// ---------------------------------------------------------------------------
 
 type Step = { label: string };
 
@@ -78,9 +66,6 @@ function stepIndexForStatus(status: ActivityStatus): number {
   return 0;
 }
 
-// ---------------------------------------------------------------------------
-// Sub-components
-// ---------------------------------------------------------------------------
 
 function ProgressStepper({ status }: { status: ActivityStatus }) {
   const isTerminal = status === "FAILED" || status === "REFUNDED";
@@ -226,9 +211,6 @@ function ActivityCard({ item }: { item: ActivityItem }) {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Toast system
-// ---------------------------------------------------------------------------
 
 interface Toast {
   id: string;
@@ -281,23 +263,15 @@ function ToastContainer({
   );
 }
 
-// ---------------------------------------------------------------------------
-// Main App
-// ---------------------------------------------------------------------------
 
 export function App() {
-  // BTC / PowPeg tracking
   const [txIdInput, setTxIdInput] = useState("");
   const [txIdError, setTxIdError] = useState("");
   const [trackedTxIds, setTrackedTxIds] = useState<string[]>([]);
-
-  // Flyover tracking
   const [flyoverOpen, setFlyoverOpen] = useState(false);
   const [lpsUrl, setLpsUrl] = useState("");
   const [quoteHashInput, setQuoteHashInput] = useState("");
   const [trackedQuoteHashes, setTrackedQuoteHashes] = useState<string[]>([]);
-
-  // Toasts
   const [toasts, setToasts] = useState<Toast[]>([]);
   const dismissTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
@@ -329,9 +303,6 @@ export function App() {
     [addToast]
   );
 
-  // Memoize the provider object so its reference is stable across renders.
-  // The hook's effect depends on `provider.apiBaseUrl` (a string), so an
-  // unstable reference here would recreate the polling manager every render.
   const hasFlyoverQuotes = trackedQuoteHashes.length > 0;
   const flyoverProvider = useMemo<FlyoverLiquidityProvider | undefined>(() => {
     const url = lpsUrl.trim();
@@ -349,8 +320,6 @@ export function App() {
       ? { provider: flyoverProvider, quoteHashes: trackedQuoteHashes }
       : undefined,
   });
-
-  // ── BTC / PowPeg handlers ──────────────────────────────────────────────
 
   const handleAddTxId = () => {
     const trimmed = txIdInput.trim();
@@ -375,8 +344,6 @@ export function App() {
   const handleRemoveTxId = (txid: string) =>
     setTrackedTxIds((prev) => prev.filter((t) => t !== txid));
 
-  // ── Flyover handlers ───────────────────────────────────────────────────
-
   const handleAddQuoteHash = () => {
     const trimmed = quoteHashInput.trim();
     if (!trimmed || trackedQuoteHashes.includes(trimmed)) return;
@@ -392,8 +359,6 @@ export function App() {
     setTrackedQuoteHashes((prev) => prev.filter((h) => h !== hash));
 
   const hasAnySources = trackedTxIds.length > 0 || trackedQuoteHashes.length > 0;
-
-  // ── Render ─────────────────────────────────────────────────────────────
 
   return (
     <div className="page">
@@ -417,7 +382,6 @@ export function App() {
       <main className="content">
         <ToastContainer toasts={toasts} onDismiss={dismissToast} />
 
-        {/* ── PowPeg / BTC tracking ── */}
         <section className="card">
           <h2 className="card-title">Track via PowPeg</h2>
           <p className="card-helper">
@@ -466,7 +430,6 @@ export function App() {
           )}
         </section>
 
-        {/* ── Flyover tracking ── */}
         <section className="card">
           <button
             className="collapsible-header"
@@ -535,7 +498,6 @@ export function App() {
           )}
         </section>
 
-        {/* ── Activity feed ── */}
         <section>
           <div className="feed-header">
             <h2 className="card-title feed-title">Incoming Funds</h2>

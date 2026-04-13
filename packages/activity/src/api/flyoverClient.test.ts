@@ -126,8 +126,6 @@ describe("fetchFlyoverPeginStatusByQuoteHash", () => {
       axiosInstance: client,
     });
 
-    // EXPIRED is semantically distinct from FAILED: the window elapsed rather
-    // than an active failure. The normalizer maps both to ActivityStatus FAILED.
     expect(result?.simpleStatus).toBe("EXPIRED");
   });
 

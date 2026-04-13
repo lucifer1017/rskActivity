@@ -25,19 +25,8 @@ export interface PowpegStatus {
 }
 
 export interface PowpegClientOptions {
-  /**
-   * Base URL of the 2wp-api / PowPeg backend.
-   * Example: https://api.2wp.rootstock.io
-   */
   baseUrl: string;
-  /**
-   * Optional timeout (in ms) for PowPeg HTTP requests.
-   * Defaults to 10000ms.
-   */
   timeoutMs?: number;
-  /**
-   * Optional custom Axios instance, primarily for testing.
-   */
   axiosInstance?: AxiosInstance;
 }
 
@@ -61,19 +50,10 @@ export class PowpegClientError extends Error {
   }
 }
 
-/**
- * Best-effort mapping from a raw PowPeg / 2wp-api status string and flags
- * into a stable PowpegHighLevelStatus value.
- *
- * This function is intentionally defensive: unknown / unexpected values are
- * coerced into a safe generic state instead of throwing.
- */
 function normalizeHighLevelStatus(input?: string | null, hasRefund?: boolean): PowpegHighLevelStatus {
   const value = (input ?? "").toLowerCase();
 
   if (hasRefund) {
-    // If a refund object is present we bias towards REFUNDED unless the
-    // backend explicitly marks the transfer as completed.
     if (value === "completed" || value === "success") {
       return "COMPLETED";
     }
@@ -96,25 +76,8 @@ function normalizeHighLevelStatus(input?: string | null, hasRefund?: boolean): P
     return "PENDING";
   }
 
-  // Fallback when we cannot confidently distinguish between PENDING and
-  // PROCESSING: default to PROCESSING to avoid implying the user must still
-  // wait for initial confirmations.
   return "PROCESSING";
 }
-
-/**
- * Fetch PowPeg / 2wp-api status information for a peg-in transaction given
- * its funding Bitcoin transaction hash.
- *
- * Notes:
- * - A 404 / "not found" response is treated as "no PowPeg record yet" and
- *   results in `null`.
- * - Network / server errors are surfaced as PowpegClientError.
- *
- * The exact response shape of 2wp-api may evolve over time. This function
- * is written to be resilient: it only relies on a small set of fields and
- * preserves the full raw JSON for debugging and future-proofing.
- */
 export async function fetchPowpegStatusByBtcTxId(
   btcTxId: string,
   options: PowpegClientOptions
@@ -127,23 +90,16 @@ export async function fetchPowpegStatusByBtcTxId(
       baseURL: options.baseUrl.replace(/\/+$/, ""),
       timeout: timeoutMs,
     });
-
-  // Endpoint path is based on the public 2wp-api deployment, where peg-in
-  // lookups are exposed under /api/v1/pegins/{btcTxId}. If a different
-  // deployment uses a different path, callers can provide a custom
-  // Axios instance configured with the appropriate baseURL + interceptors.
   const url = `/api/v1/pegins/${encodeURIComponent(btcTxId)}`;
 
   let response;
   try {
     response = await client.get(url);
   } catch (err: unknown) {
-    // Axios wraps errors with isAxiosError and may expose response / code.
     const statusCode = axios.isAxiosError(err) ? err.response?.status : undefined;
     const errorCode = axios.isAxiosError(err) ? err.code : undefined;
 
     if (statusCode === 404) {
-      // No PowPeg record yet for this transaction.
       return null;
     }
 
@@ -183,8 +139,6 @@ export async function fetchPowpegStatusByBtcTxId(
     );
   }
 
-  // The concrete 2wp-api schema may vary slightly across deployments.
-  // We attempt to extract a minimal but useful subset here.
   const id: string =
     (typeof raw.id === "string" && raw.id) ||
     (typeof raw._id === "string" && raw._id) ||

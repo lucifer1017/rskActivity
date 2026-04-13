@@ -1,8 +1,6 @@
 import type { ActivityItem, ActivityStatus } from "../types/activity";
 import type { PowpegStatus } from "../api/powpegClient";
 import { makeActivityId } from "../utils/activityId";
-
-// Average Bitcoin block time in minutes.
 const BTC_BLOCK_MIN = 10;
 
 function mapHighLevelToActivityStatus(
@@ -20,19 +18,11 @@ function mapHighLevelToActivityStatus(
     case "FAILED":
       return "FAILED";
     default: {
-      // Exhaustiveness guard — surfaces compile-time error if enum grows.
       const _exhaustive: never = highLevel;
       return _exhaustive;
     }
   }
 }
-
-/**
- * Estimate ETA in minutes based on confirmation progress.
- *
- * The PowPeg only acts once the required number of BTC confirmations is
- * reached. We assume ~10 min per block plus a 5-min processing buffer.
- */
 function estimateEtaMinutes(
   status: ActivityStatus,
   confirmations?: number,
@@ -49,11 +39,9 @@ function estimateEtaMinutes(
     requiredConfirmations > 0
   ) {
     const remaining = Math.max(0, requiredConfirmations - confirmations);
-    // Each remaining block is ~10 min; add 5 min for bridge processing.
     return remaining * BTC_BLOCK_MIN + 5;
   }
 
-  // Fallback estimates when confirmation data is absent.
   if (status === "PENDING") return 15;
   if (status === "CONFIRMING") return 30;
   if (status === "BRIDGING") return 10;

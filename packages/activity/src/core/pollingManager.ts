@@ -19,13 +19,6 @@ export interface PollingManager {
   stop(): void;
   forceRefresh(): void;
 }
-
-/**
- * Polling manager orchestrates per-source polling (BTC, PowPeg, Flyover),
- * merges results into a single activity list, and emits notification events.
- *
- * It is framework-agnostic and side-effect free beyond the callbacks.
- */
 export function createPollingManager(options: PollingManagerOptions): PollingManager {
   const { config, fetchBtc, fetchPowpeg, fetchFlyover, onUpdate, onError } = options;
   const hasBtcSource = Boolean(fetchBtc && config.enableMempoolSniffer);
@@ -38,8 +31,6 @@ export function createPollingManager(options: PollingManagerOptions): PollingMan
   let flyoverTimer: ReturnType<typeof setTimeout> | undefined;
 
   let previousItems: ActivityItem[] = [];
-
-  // Last known per-source snapshots
   let lastBtcItems: ActivityItem[] = [];
   let lastPowpegItems: ActivityItem[] = [];
   let lastFlyoverItems: ActivityItem[] = [];
@@ -62,7 +53,6 @@ export function createPollingManager(options: PollingManagerOptions): PollingMan
         await fn();
       } finally {
         if (!running) return;
-        // Reschedule
         schedule(source, delayMs, fn);
       }
     }, delayMs);
@@ -123,8 +113,6 @@ export function createPollingManager(options: PollingManagerOptions): PollingMan
     if (running) return;
     if (!hasBtcSource && !hasPowpegSource && !hasFlyoverSource) return;
     running = true;
-
-    // Initial immediate polls (fire-and-forget)
     void pollBtc();
     void pollPowpeg();
     void pollFlyover();

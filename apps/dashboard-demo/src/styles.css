@@ -1,4 +1,3 @@
-/* ── Reset ── */
 *,
 *::before,
 *::after {
@@ -7,7 +6,6 @@
   padding: 0;
 }
 
-/* ── Tokens ── */
 :root {
   --bg-deep: #020617;
   --bg-card: #0a1628;
@@ -43,7 +41,6 @@
   --radius-full: 9999px;
 }
 
-/* ── Base ── */
 body {
   font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text",
     "Segoe UI", sans-serif;
@@ -68,14 +65,12 @@ button {
   cursor: pointer;
 }
 
-/* ── Layout ── */
 .page {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
 }
 
-/* ── Header ── */
 .header {
   position: sticky;
   top: 0;
@@ -141,7 +136,6 @@ button {
   50% { opacity: 0.4; transform: scale(0.75); }
 }
 
-/* ── Content ── */
 .content {
   flex: 1;
   max-width: 1100px;
@@ -153,7 +147,6 @@ button {
   gap: 1.5rem;
 }
 
-/* ── Card ── */
 .card {
   background: var(--bg-card);
   border: 1px solid var(--border);
@@ -176,7 +169,6 @@ button {
   line-height: 1.6;
 }
 
-/* ── Input row ── */
 .input-row {
   display: flex;
   gap: 0.5rem;
@@ -207,7 +199,6 @@ button {
   font-family: inherit;
 }
 
-/* ── Buttons ── */
 .btn {
   padding: 0.55rem 1.1rem;
   border-radius: var(--radius-full);
@@ -238,7 +229,6 @@ button {
   border: 1px solid var(--border-strong);
 }
 
-/* ── Chips ── */
 .chip-row {
   display: flex;
   flex-wrap: wrap;
@@ -274,7 +264,6 @@ button {
   color: var(--accent-red);
 }
 
-/* ── Feed header ── */
 .feed-header {
   display: flex;
   align-items: center;
@@ -295,14 +284,12 @@ button {
   padding: 0.15rem 0.55rem;
 }
 
-/* ── Activity grid ── */
 .activity-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
   gap: 1rem;
 }
 
-/* ── Activity card ── */
 .activity-card {
   background: var(--bg-card);
   border: 1px solid var(--border);
@@ -330,7 +317,6 @@ button {
   border-color: rgba(248, 113, 113, 0.2);
 }
 
-/* ── Card header ── */
 .card-header {
   display: flex;
   align-items: center;
@@ -346,7 +332,6 @@ button {
   flex-wrap: wrap;
 }
 
-/* ── Type tag ── */
 .type-tag {
   font-size: 0.68rem;
   font-weight: 700;
@@ -375,7 +360,6 @@ button {
   background: rgba(251, 191, 36, 0.06);
 }
 
-/* ── Status badge ── */
 .badge {
   display: inline-flex;
   align-items: center;
@@ -394,7 +378,6 @@ button {
 .badge-refunded   { background: var(--status-refunded-bg);   color: var(--status-refunded-fg);   }
 .badge-failed     { background: var(--status-failed-bg);     color: var(--status-failed-fg);     }
 
-/* ── ETA badge ── */
 .eta-badge {
   font-size: 0.78rem;
   font-weight: 700;
@@ -407,7 +390,6 @@ button {
   flex-shrink: 0;
 }
 
-/* ── Amount row ── */
 .amount-row {
   display: flex;
   align-items: center;
@@ -421,7 +403,6 @@ button {
 .amount-rbtc { color: var(--accent-green); }
 .amount-arrow { color: var(--text-dim); font-size: 0.9rem; }
 
-/* ── Progress stepper ── */
 .stepper {
   display: flex;
   align-items: center;
@@ -500,7 +481,6 @@ button {
   border: 1px solid rgba(167, 139, 250, 0.3);
 }
 
-/* ── Confirmation bar ── */
 .conf-bar-wrap {
   display: flex;
   align-items: center;
@@ -528,14 +508,12 @@ button {
   white-space: nowrap;
 }
 
-/* ── Card description ── */
 .card-description {
   font-size: 0.78rem;
   color: var(--text-muted);
   line-height: 1.5;
 }
 
-/* ── Tx links ── */
 .tx-links {
   display: flex;
   flex-wrap: wrap;
@@ -559,7 +537,6 @@ button {
 .tx-link--btc { color: var(--accent-yellow); }
 .tx-link--rsk { color: var(--accent-cyan); }
 
-/* ── Card footer ── */
 .card-footer {
   font-size: 0.68rem;
   color: var(--text-dim);
@@ -568,7 +545,6 @@ button {
   margin-top: 0.1rem;
 }
 
-/* ── Toasts ── */
 .toast-container {
   position: fixed;
   top: 4.5rem;
@@ -616,7 +592,6 @@ button {
 }
 .toast-dismiss:hover { color: var(--text-primary); }
 
-/* ── Alert ── */
 .alert {
   padding: 0.7rem 1rem;
   border-radius: var(--radius-md);
@@ -629,7 +604,6 @@ button {
   color: var(--status-failed-fg);
 }
 
-/* ── Empty state ── */
 .empty-state {
   text-align: center;
   padding: 3.5rem 2rem;
@@ -648,7 +622,6 @@ button {
   line-height: 1.6;
 }
 
-/* ── Input error ── */
 .tx-input--error {
   border-color: rgba(248, 113, 113, 0.7);
 }
@@ -659,7 +632,6 @@ button {
   margin-top: 0.35rem;
 }
 
-/* ── Collapsible ── */
 .collapsible-header {
   width: 100%;
   background: none;
@@ -693,7 +665,6 @@ code {
   border-radius: 0.25rem;
 }
 
-/* ── Responsive ── */
 @media (max-width: 640px) {
   .header { padding: 0.85rem 1.25rem; }
   .content { padding: 1.25rem 1.25rem 3rem; }

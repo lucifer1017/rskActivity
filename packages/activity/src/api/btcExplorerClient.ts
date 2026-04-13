@@ -13,14 +13,6 @@ export interface BtcExplorerClientOptions {
 }
 
 const DEFAULT_BASE_URL = "https://mempool.space/api";
-
-/**
- * Fetch basic Bitcoin transaction status information from a mempool.space-compatible API.
- *
- * Note: This client focuses on mempool vs confirmed state and basic metadata.
- * Confirmation counts and value details are intentionally left out and can be
- * complemented by PowPeg / Flyover data.
- */
 export async function fetchBtcTxStatus(
   txid: string,
   options?: BtcExplorerClientOptions
