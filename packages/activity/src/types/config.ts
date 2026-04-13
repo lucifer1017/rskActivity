@@ -2,7 +2,7 @@ export type NetworkName = "regtest" | "testnet" | "mainnet";
 
 export interface ActivityConfig {
   // Network / endpoints
-  network: NetworkName;
+  network?: NetworkName;
   powpegApiBaseUrl?: string;
   btcExplorerBaseUrl?: string;
 

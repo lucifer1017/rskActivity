@@ -1,0 +1,703 @@
+/* ── Reset ── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* ── Tokens ── */
+:root {
+  --bg-deep: #020617;
+  --bg-card: #0a1628;
+  --bg-card-hover: #0f1f3d;
+  --border: rgba(148, 163, 184, 0.18);
+  --border-strong: rgba(148, 163, 184, 0.35);
+  --text-primary: #e2e8f0;
+  --text-muted: #94a3b8;
+  --text-dim: #64748b;
+  --accent-green: #22c55e;
+  --accent-cyan: #22d3ee;
+  --accent-blue: #60a5fa;
+  --accent-yellow: #facc15;
+  --accent-purple: #a78bfa;
+  --accent-red: #f87171;
+
+  --status-pending-bg: rgba(251, 191, 36, 0.12);
+  --status-pending-fg: #fbbf24;
+  --status-confirming-bg: rgba(96, 165, 250, 0.12);
+  --status-confirming-fg: #60a5fa;
+  --status-bridging-bg: rgba(34, 211, 191, 0.12);
+  --status-bridging-fg: #2dd4bf;
+  --status-completed-bg: rgba(34, 197, 94, 0.15);
+  --status-completed-fg: #4ade80;
+  --status-refunded-bg: rgba(167, 139, 250, 0.12);
+  --status-refunded-fg: #a78bfa;
+  --status-failed-bg: rgba(248, 113, 113, 0.12);
+  --status-failed-fg: #f87171;
+
+  --radius-sm: 0.375rem;
+  --radius-md: 0.625rem;
+  --radius-lg: 1rem;
+  --radius-full: 9999px;
+}
+
+/* ── Base ── */
+body {
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text",
+    "Segoe UI", sans-serif;
+  background: radial-gradient(ellipse at 20% 10%, #0d1f3c 0%, var(--bg-deep) 60%);
+  color: var(--text-primary);
+  min-height: 100vh;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: var(--accent-blue);
+  text-decoration: none;
+}
+a:hover {
+  text-decoration: underline;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+/* ── Layout ── */
+.page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Header ── */
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  border-bottom: 1px solid var(--border);
+  background: rgba(2, 6, 23, 0.85);
+  backdrop-filter: blur(24px);
+  padding: 1rem 2rem;
+}
+
+.header-inner {
+  max-width: 1100px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.header-title {
+  font-size: 1.3rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+}
+
+.header-logo {
+  margin-right: 0.35rem;
+}
+
+.header-subtitle {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-top: 0.1rem;
+}
+
+.header-status {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.header-network {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  background: rgba(148, 163, 184, 0.08);
+  border: 1px solid var(--border);
+  padding: 0.2rem 0.6rem;
+  border-radius: var(--radius-full);
+}
+
+.pulse-dot {
+  width: 8px;
+  height: 8px;
+  background: var(--accent-green);
+  border-radius: 50%;
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.75); }
+}
+
+/* ── Content ── */
+.content {
+  flex: 1;
+  max-width: 1100px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 2rem 2rem 3rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* ── Card ── */
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem 1.75rem;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+.card-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 0.5rem;
+}
+
+.card-helper {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin-bottom: 1rem;
+  line-height: 1.6;
+}
+
+/* ── Input row ── */
+.input-row {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.75rem;
+}
+
+.tx-input {
+  flex: 1 1 280px;
+  min-width: 0;
+  padding: 0.55rem 0.75rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-strong);
+  background: rgba(2, 6, 23, 0.8);
+  color: var(--text-primary);
+  font-family: "SF Mono", "Fira Code", monospace;
+  font-size: 0.8rem;
+  transition: border-color 0.15s;
+}
+
+.tx-input:focus {
+  outline: none;
+  border-color: var(--accent-cyan);
+}
+
+.tx-input::placeholder {
+  color: var(--text-dim);
+  font-family: inherit;
+}
+
+/* ── Buttons ── */
+.btn {
+  padding: 0.55rem 1.1rem;
+  border-radius: var(--radius-full);
+  border: none;
+  font-size: 0.85rem;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: opacity 0.15s, transform 0.1s;
+}
+
+.btn:active {
+  transform: scale(0.97);
+}
+
+.btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--accent-green), var(--accent-cyan));
+  color: #020617;
+}
+
+.btn-secondary {
+  background: transparent;
+  color: var(--text-primary);
+  border: 1px solid var(--border-strong);
+}
+
+/* ── Chips ── */
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.25rem;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.2rem 0.5rem 0.2rem 0.65rem;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-strong);
+  font-size: 0.7rem;
+  font-family: "SF Mono", "Fira Code", monospace;
+  color: var(--accent-blue);
+  background: rgba(96, 165, 250, 0.06);
+  max-width: 280px;
+}
+
+.chip-remove {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 0.9rem;
+  line-height: 1;
+  padding: 0 0.1rem;
+  transition: color 0.15s;
+}
+
+.chip-remove:hover {
+  color: var(--accent-red);
+}
+
+/* ── Feed header ── */
+.feed-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+
+.feed-title {
+  margin-bottom: 0;
+}
+
+.feed-count {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  background: rgba(148, 163, 184, 0.08);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  padding: 0.15rem 0.55rem;
+}
+
+/* ── Activity grid ── */
+.activity-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: 1rem;
+}
+
+/* ── Activity card ── */
+.activity-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1.25rem 1.4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.activity-card:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--border-strong);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.5);
+}
+
+.activity-card--completed {
+  border-color: rgba(34, 197, 94, 0.25);
+}
+
+.activity-card--failed,
+.activity-card--refunded {
+  border-color: rgba(248, 113, 113, 0.2);
+}
+
+/* ── Card header ── */
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.card-header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+
+/* ── Type tag ── */
+.type-tag {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 0.15rem 0.5rem;
+  border-radius: var(--radius-full);
+  border: 1px solid;
+}
+
+.type-tag--powpeg {
+  color: var(--accent-cyan);
+  border-color: rgba(34, 211, 238, 0.4);
+  background: rgba(34, 211, 238, 0.06);
+}
+
+.type-tag--flyover {
+  color: var(--accent-purple);
+  border-color: rgba(167, 139, 250, 0.4);
+  background: rgba(167, 139, 250, 0.06);
+}
+
+.type-tag--bitcoin-mempool {
+  color: var(--accent-yellow);
+  border-color: rgba(251, 191, 36, 0.4);
+  background: rgba(251, 191, 36, 0.06);
+}
+
+/* ── Status badge ── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.5rem;
+  border-radius: var(--radius-full);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.badge-pending    { background: var(--status-pending-bg);    color: var(--status-pending-fg);    }
+.badge-confirming { background: var(--status-confirming-bg); color: var(--status-confirming-fg); }
+.badge-bridging   { background: var(--status-bridging-bg);   color: var(--status-bridging-fg);   }
+.badge-completed  { background: var(--status-completed-bg);  color: var(--status-completed-fg);  }
+.badge-refunded   { background: var(--status-refunded-bg);   color: var(--status-refunded-fg);   }
+.badge-failed     { background: var(--status-failed-bg);     color: var(--status-failed-fg);     }
+
+/* ── ETA badge ── */
+.eta-badge {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--accent-green);
+  background: rgba(34, 197, 94, 0.1);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  border-radius: var(--radius-full);
+  padding: 0.15rem 0.6rem;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* ── Amount row ── */
+.amount-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.amount-btc  { color: var(--accent-yellow); }
+.amount-rbtc { color: var(--accent-green); }
+.amount-arrow { color: var(--text-dim); font-size: 0.9rem; }
+
+/* ── Progress stepper ── */
+.stepper {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: 0.25rem 0;
+}
+
+.stepper-item {
+  display: flex;
+  align-items: center;
+  position: relative;
+}
+
+.stepper-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid var(--border-strong);
+  background: var(--bg-deep);
+  flex-shrink: 0;
+  transition: border-color 0.2s, background 0.2s;
+  z-index: 1;
+}
+
+.stepper-dot--done {
+  border-color: var(--accent-green);
+  background: var(--accent-green);
+}
+
+.stepper-dot--active {
+  border-color: var(--accent-cyan);
+  background: var(--accent-cyan);
+  box-shadow: 0 0 8px rgba(34, 211, 238, 0.5);
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+.stepper-label {
+  font-size: 0.65rem;
+  color: var(--text-dim);
+  margin-left: 0.3rem;
+  white-space: nowrap;
+}
+
+.stepper-label--active { color: var(--accent-cyan); font-weight: 600; }
+.stepper-label--done   { color: var(--accent-green); }
+
+.stepper-line {
+  height: 2px;
+  width: 2rem;
+  background: var(--border-strong);
+  margin: 0 0.2rem;
+  flex-shrink: 0;
+  transition: background 0.2s;
+}
+
+.stepper-line--done {
+  background: var(--accent-green);
+}
+
+.stepper-terminal {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.2rem 0.65rem;
+  border-radius: var(--radius-full);
+}
+
+.stepper-terminal--failed {
+  color: var(--accent-red);
+  background: var(--status-failed-bg);
+  border: 1px solid rgba(248, 113, 113, 0.3);
+}
+
+.stepper-terminal--refunded {
+  color: var(--accent-purple);
+  background: var(--status-refunded-bg);
+  border: 1px solid rgba(167, 139, 250, 0.3);
+}
+
+/* ── Confirmation bar ── */
+.conf-bar-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.conf-bar-track {
+  flex: 1;
+  height: 5px;
+  background: rgba(148, 163, 184, 0.12);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+}
+
+.conf-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent-blue), var(--accent-cyan));
+  border-radius: var(--radius-full);
+  transition: width 0.6s ease;
+}
+
+.conf-bar-label {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* ── Card description ── */
+.card-description {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+/* ── Tx links ── */
+.tx-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.tx-link {
+  font-size: 0.72rem;
+  font-family: "SF Mono", "Fira Code", monospace;
+  padding: 0.2rem 0.55rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  transition: border-color 0.15s;
+}
+
+.tx-link:hover {
+  border-color: var(--border-strong);
+  text-decoration: none;
+}
+
+.tx-link--btc { color: var(--accent-yellow); }
+.tx-link--rsk { color: var(--accent-cyan); }
+
+/* ── Card footer ── */
+.card-footer {
+  font-size: 0.68rem;
+  color: var(--text-dim);
+  border-top: 1px solid var(--border);
+  padding-top: 0.5rem;
+  margin-top: 0.1rem;
+}
+
+/* ── Toasts ── */
+.toast-container {
+  position: fixed;
+  top: 4.5rem;
+  right: 1.25rem;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-width: 340px;
+  width: calc(100vw - 2.5rem);
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.65rem 0.85rem;
+  border-radius: var(--radius-md);
+  border: 1px solid;
+  font-size: 0.82rem;
+  backdrop-filter: blur(12px);
+  animation: toast-in 0.25s ease;
+}
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(-8px) scale(0.97); }
+  to   { opacity: 1; transform: none; }
+}
+
+.toast--info    { background: rgba(10, 22, 40, 0.9); border-color: var(--border-strong); color: var(--text-primary); }
+.toast--success { background: rgba(34, 197, 94, 0.12); border-color: rgba(34, 197, 94, 0.4); color: var(--status-completed-fg); }
+.toast--warning { background: rgba(251, 191, 36, 0.1); border-color: rgba(251, 191, 36, 0.35); color: var(--status-pending-fg); }
+.toast--error   { background: rgba(248, 113, 113, 0.1); border-color: rgba(248, 113, 113, 0.35); color: var(--status-failed-fg); }
+
+.toast-dismiss {
+  background: none;
+  border: none;
+  font-size: 1.1rem;
+  color: var(--text-dim);
+  line-height: 1;
+  flex-shrink: 0;
+  padding: 0 0.1rem;
+  transition: color 0.15s;
+}
+.toast-dismiss:hover { color: var(--text-primary); }
+
+/* ── Alert ── */
+.alert {
+  padding: 0.7rem 1rem;
+  border-radius: var(--radius-md);
+  font-size: 0.82rem;
+  margin-bottom: 0.75rem;
+}
+.alert-error {
+  background: var(--status-failed-bg);
+  border: 1px solid rgba(248, 113, 113, 0.35);
+  color: var(--status-failed-fg);
+}
+
+/* ── Empty state ── */
+.empty-state {
+  text-align: center;
+  padding: 3.5rem 2rem;
+  color: var(--text-muted);
+}
+
+.empty-icon {
+  font-size: 2.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.empty-hint {
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  margin-top: 0.35rem;
+  line-height: 1.6;
+}
+
+/* ── Input error ── */
+.tx-input--error {
+  border-color: rgba(248, 113, 113, 0.7);
+}
+
+.input-error {
+  font-size: 0.78rem;
+  color: var(--status-failed-fg);
+  margin-top: 0.35rem;
+}
+
+/* ── Collapsible ── */
+.collapsible-header {
+  width: 100%;
+  background: none;
+  border: none;
+  text-align: left;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  cursor: pointer;
+  padding: 0;
+  color: var(--text-primary);
+}
+
+.collapsible-chevron {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  margin-top: 0.2rem;
+  flex-shrink: 0;
+}
+
+.collapsible-body {
+  margin-top: 0.25rem;
+}
+
+code {
+  font-family: "SF Mono", "Fira Code", monospace;
+  font-size: 0.82em;
+  background: rgba(148, 163, 184, 0.1);
+  padding: 0.05em 0.35em;
+  border-radius: 0.25rem;
+}
+
+/* ── Responsive ── */
+@media (max-width: 640px) {
+  .header { padding: 0.85rem 1.25rem; }
+  .content { padding: 1.25rem 1.25rem 3rem; }
+  .activity-grid { grid-template-columns: 1fr; }
+  .stepper-line { width: 1.25rem; }
+  .toast-container { right: 0.75rem; top: 4rem; }
+}

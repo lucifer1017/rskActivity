@@ -13,11 +13,13 @@ export interface ResolvedActivityConfig {
   enableFlyover: boolean;
 }
 
-const DEFAULT_POLLING_MS = 20000;
-const MAINNET_POWPEG = "https://powpeg.rootstock.io";
-const TESTNET_POWPEG = "https://powpeg.testnet.rootstock.io";
+const DEFAULT_POLLING_MS = 20_000;
+// 2wp-api is the public REST service that backs the PowPeg bridge.
+const MAINNET_POWPEG = "https://api.2wp.rootstock.io";
+const TESTNET_POWPEG = "https://api.2wp.testnet.rootstock.io";
+// mempool.space is the default BTC explorer (mempool.space-compatible API).
 const MAINNET_BTC = "https://mempool.space/api";
-const TESTNET_BTC = "https://mempool.space/testnet/api";
+const TESTNET_BTC = "https://mempool.space/testnet4/api";
 
 function defaultPowpegUrl(network: NetworkName): string {
   if (network === "mainnet") return MAINNET_POWPEG;

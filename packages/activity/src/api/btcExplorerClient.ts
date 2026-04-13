@@ -2,7 +2,6 @@ import axios, { type AxiosInstance } from "axios";
 
 export interface BtcTxStatus {
   txid: string;
-  isInMempool: boolean;
   isConfirmed: boolean;
   blockHeight?: number;
   timestamp?: number;
@@ -45,7 +44,6 @@ export async function fetchBtcTxStatus(
 
   return {
     txid,
-    isInMempool: !confirmed,
     isConfirmed: confirmed,
     blockHeight: data.status?.block_height,
     timestamp: data.status?.block_time,

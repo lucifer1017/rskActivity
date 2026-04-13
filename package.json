@@ -8,13 +8,18 @@
     "apps/*"
   ],
   "scripts": {
-    "build": "npm run build -w @rootstock-kits/activity",
+    "build": "npm run build -w @rootstock-kits/activity && npm run build -w rsk-activity-dashboard-demo",
     "test": "npm test -w @rootstock-kits/activity",
-    "lint": "npm run lint -w @rootstock-kits/activity"
+    "lint": "npm run lint -w @rootstock-kits/activity && npm run lint -w rsk-activity-dashboard-demo",
+    "dev:dashboard": "npm run dev -w rsk-activity-dashboard-demo"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.58.1",
+    "@typescript-eslint/parser": "^8.58.1"
   },
   "engines": {
     "node": ">=18.0.0"
   },
   "license": "MIT"
 }
-

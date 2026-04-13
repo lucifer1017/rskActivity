@@ -14,9 +14,9 @@ All implementation must conform to this spec; changes here are considered breaki
 type ActivityType = "BITCOIN_MEMPOOL" | "POWPEG" | "FLYOVER";
 ```
 
-- **`BITCOIN_MEMPOOL`**: Information derived from a Bitcoin explorer (mempool / confirmation status for a *known bridge transaction*).
-- **`POWPEG`**: Status information for native PowPeg peg-ins/peg-outs, from the PowPeg/2wp-api backend.
-- **`FLYOVER`**: Status information for Flyover-accelerated peg operations, from the Flyover SDK / LP APIs.
+- **`BITCOIN_MEMPOOL`**: Mempool / confirmation status from a Bitcoin explorer for a *known bridge transaction*.
+- **`POWPEG`**: Peg-in status from the PowPeg / 2wp-api backend.
+- **`FLYOVER`**: Peg-in status from a Flyover Liquidity Provider Server (LPS) REST API.
 
 ### 1.2 `ActivityStatus`
 
@@ -30,12 +30,12 @@ type ActivityStatus =
   | "FAILED";
 ```
 
-- **`PENDING`**: Operation detected but not yet confirmed / in progress.
-- **`CONFIRMING`**: Funding transaction is gaining confirmations, but the bridge hasn’t finished.
-- **`BRIDGING`**: The bridge (PowPeg/Flyover) is processing funds (e.g. federation, LP advance).
+- **`PENDING`**: Detected but not yet confirmed / in progress.
+- **`CONFIRMING`**: Funding BTC transaction is gaining confirmations; bridge has not yet acted.
+- **`BRIDGING`**: The bridge (PowPeg / Flyover LP) is actively processing funds.
 - **`COMPLETED`**: Funds have arrived at the destination chain/address.
-- **`REFUNDED`**: Funds were refunded to the user (e.g. peg-in error).
-- **`FAILED`**: Operation irrecoverably failed and was not completed or refunded.
+- **`REFUNDED`**: Funds were returned to the user.
+- **`FAILED`**: Operation irrecoverably failed.
 
 ### 1.3 `ActivityItem`
 
@@ -49,40 +49,40 @@ interface ActivityItem {
   btcAddress?: string;
   rskAddress?: string;
 
-  // Amounts (base units, represented as strings)
-  btcAmountSats?: string;  // total BTC value related to this activity (satoshis)
-  btcFeeSats?: string;     // BTC fee (satoshis)
-  rbtcAmountWei?: string;  // total rBTC value related to this activity (wei)
-  rbtcFeeWei?: string;     // rBTC fee (wei)
+  // Amounts (base units, as strings to avoid float precision issues)
+  btcAmountSats?: string;   // satoshis
+  btcFeeSats?: string;
+  rbtcAmountWei?: string;   // wei
+  rbtcFeeWei?: string;
 
   // Status and progress
   status: ActivityStatus;
-  subStatus?: string;            // optional protocol-specific detail (e.g. "waitingForUserDeposit")
-  confirmations?: number;        // current confirmations (if known)
-  requiredConfirmations?: number;// confirmations required before bridge proceeds
-  etaMinutes?: number | null;    // estimated minutes remaining (derived, optional)
+  subStatus?: string;              // protocol-specific detail (e.g. LPS raw state)
+  confirmations?: number;
+  requiredConfirmations?: number;
+  etaMinutes?: number | null;      // estimated minutes remaining (null = unknown)
 
-  // Chain-specific data
+  // Chain data
   btcTxId?: string;
   rskTxId?: string;
   btcBlockHeight?: number;
   rskBlockHeight?: number;
 
-  // Timestamps (ISO 8601 strings)
-  createdAt: string;   // when this activity was first detected
-  updatedAt: string;   // last time this activity was updated
-  completedAt?: string;// when status first became COMPLETED / REFUNDED / FAILED
+  // Timestamps (ISO 8601)
+  createdAt: string;
+  updatedAt: string;
+  completedAt?: string;
 
   // Display helpers
-  title?: string;       // short label for UI
-  description?: string; // human-readable summary
+  title?: string;
+  description?: string;
 }
 ```
 
 **Notes:**
-- Amounts are always **base units as strings** (no floats).
-- At minimum, `id`, `type`, `status`, `createdAt`, and `updatedAt` must be set.
-- `COMPLETED` / `REFUNDED` / `FAILED` are only set based on **PowPeg/Flyover** sources, never from BTC explorer alone.
+- `id`, `type`, `status`, `createdAt`, `updatedAt` are always present.
+- Amounts are always **base units as strings** (no floating-point).
+- `COMPLETED` / `REFUNDED` / `FAILED` are only produced by PowPeg or Flyover sources, never by the BTC explorer alone.
 
 ---
 
@@ -98,36 +98,28 @@ type NetworkName = "regtest" | "testnet" | "mainnet";
 
 ```ts
 interface ActivityConfig {
-  // Network / endpoints
-  network: NetworkName;
-  powpegApiBaseUrl?: string;    // overrides default PowPeg API URL for the selected network
-  btcExplorerBaseUrl?: string;  // overrides default Bitcoin explorer URL for the selected network
+  network?: NetworkName;          // defaults to "testnet"
+  powpegApiBaseUrl?: string;      // overrides default 2wp-api URL
+  btcExplorerBaseUrl?: string;    // overrides default BTC explorer URL
 
-  // Polling intervals (ms)
-  pollingIntervalMs?: number;       // global default interval
-  btcPollingIntervalMs?: number;    // overrides for BTC explorer
-  powpegPollingIntervalMs?: number; // overrides for PowPeg
-  flyoverPollingIntervalMs?: number;// overrides for Flyover
+  pollingIntervalMs?: number;        // global default (ms); default 20 000
+  btcPollingIntervalMs?: number;     // per-source override
+  powpegPollingIntervalMs?: number;
+  flyoverPollingIntervalMs?: number;
 
-  // Feature flags
-  enableMempoolSniffer?: boolean; // enable BTC mempool/confirms tracking
-  enablePowpeg?: boolean;         // enable PowPeg integration
-  enableFlyover?: boolean;        // enable Flyover integration
+  enableMempoolSniffer?: boolean;    // default true
+  enablePowpeg?: boolean;            // default true
+  enableFlyover?: boolean;           // default true
 }
 ```
 
-**Default behavior:**
-- If a per-source interval is **not** provided, it falls back to `pollingIntervalMs`.
-- If neither per-source nor global interval is provided, library defaults will be used (e.g. 20–30 seconds; concrete values are documented in code comments).
-- Default endpoints per `network`:
-  - `mainnet`:
-    - PowPeg: `https://powpeg.rootstock.io/`
-    - BTC explorer: `https://mempool.space/api`
-  - `testnet`:
-    - PowPeg: `https://powpeg.testnet.rootstock.io/`
-    - BTC explorer: `https://mempool.space/testnet/api` (or configured)
-  - `regtest`:
-    - All URLs must be provided by the consumer.
+**Default endpoints by network:**
+
+| Network   | 2wp-api (PowPeg)                          | BTC Explorer                           |
+|-----------|-------------------------------------------|----------------------------------------|
+| `mainnet` | `https://api.2wp.rootstock.io`            | `https://mempool.space/api`            |
+| `testnet` | `https://api.2wp.testnet.rootstock.io`    | `https://mempool.space/testnet4/api`   |
+| `regtest` | *(must be provided by consumer)*          | *(must be provided by consumer)*       |
 
 ---
 
@@ -137,23 +129,17 @@ interface ActivityConfig {
 
 ```ts
 type BridgeNotificationEvent =
-  | { type: "itemCreated"; item: ActivityItem }
-  | { type: "statusChanged"; item: ActivityItem; previousStatus: ActivityStatus }
-  | { type: "completed"; item: ActivityItem }
-  | { type: "failed"; item: ActivityItem }
-  | { type: "refunded"; item: ActivityItem };
+  | { type: "itemCreated";    item: ActivityItem }
+  | { type: "statusChanged";  item: ActivityItem; previousStatus: ActivityStatus }
+  | { type: "completed";      item: ActivityItem }
+  | { type: "failed";         item: ActivityItem }
+  | { type: "refunded";       item: ActivityItem };
 ```
 
-**Semantics:**
-- `itemCreated`: A new activity (previously unseen `id`) has been detected.
-- `statusChanged`: The `status` of an existing item changed to a new value (including transitions to `COMPLETED` / `FAILED` / `REFUNDED`).
-- `completed`: Convenience event specifically when `status` first becomes `COMPLETED`.
-- `failed`: When `status` first becomes `FAILED`.
-- `refunded`: When `status` first becomes `REFUNDED`.
-
-The library guarantees:
+**Guarantees:**
 - No duplicate `itemCreated` events for the same `id`.
-- `completed` / `failed` / `refunded` events are only fired on the **first** transition to those states.
+- `completed` / `failed` / `refunded` fire only on the **first** transition to that terminal state.
+- At most one `statusChanged` event per item per polling cycle (net change only).
 
 ---
 
@@ -163,74 +149,127 @@ The library guarantees:
 
 ```ts
 interface UseBridgeNotificationsOptions {
-  btcAddress?: string;
-  rskAddress?: string;
+  /**
+   * BTC transaction hashes to track at the mempool / confirmation level.
+   * Populate when the user initiates a bridge — you will have the funding txid.
+   */
+  btcTxIds?: string[];
+
+  /**
+   * BTC transaction hashes to track via the PowPeg / 2wp-api.
+   * Defaults to btcTxIds when omitted.
+   */
+  powpegBtcTxIds?: string[];
+
   config?: ActivityConfig;
+
+  /** Global polling interval override (ms). */
+  pollingIntervalMs?: number;
+
+  /** Callback for every bridge event. Wire to toast / notification system. */
   onEvent?: (event: BridgeNotificationEvent) => void;
+
+  /**
+   * Flyover peg-in tracking.
+   * Provide the LP descriptor and quote hashes obtained after accepting a quote.
+   */
+  flyover?: {
+    /**
+     * LP descriptor. Compatible with LiquidityProvider from @rsksmart/flyover-sdk —
+     * you can pass the SDK object directly.
+     * Only apiBaseUrl is used internally; the SDK is NOT required as a dependency.
+     */
+    provider: FlyoverLiquidityProvider;
+    /** Accepted quote hashes to poll for status. */
+    quoteHashes?: string[];
+  };
+}
+
+interface FlyoverLiquidityProvider {
+  provider: string;    // LP RSK address (from SDK LiquidityProvider)
+  apiBaseUrl: string;  // LP REST server base URL
 }
 ```
-
-**Notes:**
-- At least one of `btcAddress` or `rskAddress` should typically be provided.
-- `config` is optional; if omitted, sensible defaults for `network`, endpoints, and polling are used (implementation-defined but documented).
-- `onEvent` is called for each `BridgeNotificationEvent` as changes occur.
 
 ### 4.2 Result
 
 ```ts
 interface UseBridgeNotificationsResult {
-  items: ActivityItem[];
+  items: ActivityItem[];  // merged, sorted by recency (newest first)
   isLoading: boolean;
-  error: unknown;   // may be replaced by a structured ActivityError in a future version
-  refresh: () => void; // triggers an immediate poll, independent of interval
+  error: unknown;
+  refresh: () => void;
 }
 ```
 
 **Semantics:**
-- `items` is the current, merged list of activities for the given addresses and config, sorted by recency (implementation may choose the ordering; typically newest/active first).
-- `isLoading` is `true` during initial fetch and whenever a poll is in-flight.
-- `error` reflects the **last** polling error (if any); it does not prevent subsequent polling attempts.
-- `refresh()` immediately triggers a polling cycle; it does **not** cancel or alter the normal interval schedule.
-
-The hook:
-- Starts polling when mounted and stops when unmounted.
-- Rebuilds internal polling when options (`btcAddress`, `rskAddress`, `config`) change.
+- Polling starts on mount, stops on unmount.
+- Manager is recreated when `btcTxIds`, `powpegBtcTxIds`, `flyover.quoteHashes`, or resolved config changes.
+- `isLoading` is `true` during initial fetch and any in-flight poll.
+- `error` holds the last polling error; subsequent successful polls clear it.
+- `refresh()` triggers an immediate poll without altering the scheduled interval.
 
 ---
 
-## 5. Status Ownership & Merge Rules (Conceptual)
+## 5. Flyover Integration
 
-These rules guide how multiple sources (BTC, PowPeg, Flyover) are merged into a single `ActivityItem` per underlying transfer.
+### How it works
 
-1. **Status precedence** (from highest to lowest):
-   - `COMPLETED` > `REFUNDED` > `FAILED` > `BRIDGING` > `CONFIRMING` > `PENDING`.
-2. **Authority for terminal states**:
-   - Only PowPeg/Flyover sources can set `COMPLETED`, `REFUNDED`, or `FAILED`.
-   - BTC explorer never advances beyond `CONFIRMING`.
-3. **BTC role**:
-   - BTC explorer provides mempool / confirmation insight for *known bridge transactions* only.
-   - It informs `confirmations`, `requiredConfirmations`, and early `PENDING`/`CONFIRMING` stages, but not final success/failure.
-4. **Merging**:
-   - When multiple partial views (BTC, PowPeg, Flyover) refer to the same transfer, they are merged into one `ActivityItem` based on:
-     - Stable `id` strategy (implementation detail based on txids).
-     - Status precedence rules above.
-     - Most recent timestamps and chain data.
+Unlike the BTC and PowPeg sources — which only need a txid — Flyover tracking requires:
 
-Implementation must follow these rules when constructing the final `ActivityItem[]` exposed by `useBridgeNotifications`.
+1. The **Liquidity Provider Server (LPS) URL** (`apiBaseUrl`).
+2. The **quote hash** obtained when the user accepted a Flyover peg-in quote.
+
+The library calls the LPS REST API directly:
+
+```
+GET {apiBaseUrl}/pegin/status?quoteHash={hash}
+```
+
+**No `@rsksmart/flyover-sdk` dependency is required** for tracking. The SDK is useful for *initiating* Flyover transactions (getting quotes, accepting, signing); the consuming app handles that separately and then passes the resulting `quoteHash` to the activity feed.
+
+If you are using the SDK:
+
+```ts
+// 1. Initiate via SDK (your app code)
+const [lp] = await flyover.getAvailableLiquidityProviders();
+const [quote] = await flyover.getPeginQuotes(request);
+const { quoteHash } = await flyover.acceptPeginQuote(quote);
+
+// 2. Pass to activity feed (no SDK needed)
+useBridgeNotifications({
+  flyover: {
+    provider: lp,          // SDK LiquidityProvider is directly compatible
+    quoteHashes: [quoteHash],
+  },
+});
+```
 
 ---
 
-## 6. V1 Success Criteria (Scope Guard)
+## 6. Status Ownership & Merge Rules
 
-For the first public version:
+Multiple sources can observe the same underlying bridge transfer. The library merges them into a single `ActivityItem` per transfer.
 
-- Support **peg-ins on testnet and mainnet** via:
-  - BTC explorer (mempool / confirmations for peg-in tx).
-  - PowPeg API (peg-in status and finalization).
-  - Flyover SDK for fast peg-ins (if enabled).
-- Expose a stable React hook `useBridgeNotifications` that:
-  - Polls sources at configurable intervals.
-  - Produces a merged stream of `ActivityItem`s.
-  - Emits `BridgeNotificationEvent`s on significant changes.
-- Keep all endpoints, timeouts, and error handling behind configuration and documented defaults so consumers can adapt to infrastructure changes without code changes.
+1. **Stable identity**: Items from different sources sharing the same BTC txid collapse into one item via `id = bridge:btc:{btcTxId}`. RSK txid is used as fallback.
 
+2. **Status precedence** (highest wins):
+   ```
+   COMPLETED > REFUNDED > FAILED > BRIDGING > CONFIRMING > PENDING
+   ```
+
+3. **Terminal state authority**: Only PowPeg / Flyover sources can set `COMPLETED`, `REFUNDED`, or `FAILED`. The BTC explorer never advances beyond `CONFIRMING`.
+
+4. **Field merging**: The highest-precedence item's fields win, enriched by lower-precedence fields where the winner has `undefined`.
+
+5. **Sort order**: `items` is sorted by `updatedAt` descending, then `createdAt` descending, then `id` for stability.
+
+---
+
+## 7. V1 Success Criteria
+
+- Support peg-ins on **testnet and mainnet** via BTC explorer + PowPeg + Flyover.
+- Expose `useBridgeNotifications` with configurable polling, merged `ActivityItem[]`, and `BridgeNotificationEvent` callbacks.
+- All endpoints, timeouts, and URLs are configurable; sensible defaults are provided.
+- No `@rsksmart/flyover-sdk` required as a peer/runtime dependency.
+- Published as `@rootstock-kits/activity` with CJS + ESM + `.d.ts` outputs.
