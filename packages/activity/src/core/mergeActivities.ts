@@ -32,6 +32,15 @@ function sortByRecency(a: ActivityItem, b: ActivityItem): number {
 
   return a.id.localeCompare(b.id);
 }
+function enforceTerminalAuthority(item: ActivityItem): ActivityItem {
+  if (
+    (item.status === "COMPLETED" || item.status === "FAILED" || item.status === "REFUNDED") &&
+    item.type === "BITCOIN_MEMPOOL"
+  ) {
+    return { ...item, status: "CONFIRMING" };
+  }
+  return item;
+}
 
 export interface MergeResult {
   items: ActivityItem[];
@@ -52,26 +61,27 @@ export function mergeActivities(
   const nowIso = new Date().toISOString();
 
   const processIncoming = (item: ActivityItem) => {
+    const safeIncoming = enforceTerminalAuthority(item);
     const alreadyMerged = mergedById.get(item.id);
     const previousSnapshot = previousById.get(item.id);
     const baseline = alreadyMerged ?? previousSnapshot;
 
     if (!baseline) {
       mergedById.set(item.id, {
-        ...item,
-        createdAt: item.createdAt ?? nowIso,
+        ...safeIncoming,
+        createdAt: safeIncoming.createdAt ?? nowIso,
         updatedAt: nowIso,
-        completedAt: isTerminalStatus(item.status)
-          ? item.completedAt ?? nowIso
-          : item.completedAt,
+        completedAt: isTerminalStatus(safeIncoming.status)
+          ? safeIncoming.completedAt ?? nowIso
+          : safeIncoming.completedAt,
       });
       return;
     }
 
-    const nextStatus = compareStatus(baseline.status, item.status);
+    const nextStatus = compareStatus(baseline.status, safeIncoming.status);
     mergedById.set(item.id, {
       ...baseline,
-      ...item,
+      ...safeIncoming,
       status: nextStatus,
       createdAt: baseline.createdAt,
       updatedAt: nowIso,
@@ -92,13 +102,6 @@ export function mergeActivities(
 
     if (!prevItem) {
       events.push({ type: "itemCreated", item: nextItem });
-      if (nextItem.status === "COMPLETED") {
-        events.push({ type: "completed", item: nextItem });
-      } else if (nextItem.status === "FAILED") {
-        events.push({ type: "failed", item: nextItem });
-      } else if (nextItem.status === "REFUNDED") {
-        events.push({ type: "refunded", item: nextItem });
-      }
       continue;
     }
 

@@ -1,6 +1,7 @@
 import type { ActivityItem, ActivityStatus } from "../types/activity";
 import type { FlyoverPeginStatus } from "../api/flyoverClient";
 import { makeActivityId } from "../utils/activityId";
+import { estimateEtaFromConfirmations } from "./eta";
 function mapFlyoverStatus(status: FlyoverPeginStatus): ActivityStatus {
   const { rawState, simpleStatus } = status;
 
@@ -17,24 +18,13 @@ function mapFlyoverStatus(status: FlyoverPeginStatus): ActivityStatus {
     rawState === "CallForUserFailed" ||
     rawState === "RegisterPegInFailed"
   ) {
-    return "FAILED";
+    return rawState === "TimeForDepositElapsed" ? "REFUNDED" : "FAILED";
   }
 
   if (simpleStatus === "SUCCESS") return "COMPLETED";
-  if (simpleStatus === "FAILED" || simpleStatus === "EXPIRED") return "FAILED";
+  if (simpleStatus === "EXPIRED") return "REFUNDED";
+  if (simpleStatus === "FAILED") return "FAILED";
   return "BRIDGING";
-}
-function estimateEtaMinutes(activityStatus: ActivityStatus): number | null {
-  switch (activityStatus) {
-    case "PENDING":
-      return 20;
-    case "CONFIRMING":
-      return 15;
-    case "BRIDGING":
-      return 5;
-    default:
-      return null;
-  }
 }
 
 function buildDescription(
@@ -50,6 +40,8 @@ function buildDescription(
       return "LP is delivering RBTC to your Rootstock address";
     case "COMPLETED":
       return "RBTC delivered to your Rootstock address via Flyover";
+    case "REFUNDED":
+      return "Deposit window elapsed and funds are available for refund handling";
     case "FAILED":
       return status.rawState === "TimeForDepositElapsed"
         ? "Deposit window expired — transfer was not processed"
@@ -82,7 +74,7 @@ export function normalizeFlyoverStatusToActivityItem(
     rskAddress: status.rskAddress,
     rbtcAmountWei: status.rbtcAmountWei,
     requiredConfirmations: status.requiredConfirmations,
-    etaMinutes: estimateEtaMinutes(activityStatus),
+    etaMinutes: estimateEtaFromConfirmations(activityStatus),
     createdAt: nowIso,
     updatedAt: nowIso,
   };

@@ -10,16 +10,18 @@ import {
 const NETWORK = "testnet" as const;
 
 const EXPLORER_BTC =
-  NETWORK === "mainnet"
-    ? "https://mempool.space/tx"
-    : "https://mempool.space/testnet4/tx";
+  NETWORK === "testnet"
+    ? "https://mempool.space/testnet4/tx"
+    : "https://mempool.space/tx";
 
 const EXPLORER_RSK =
-  NETWORK === "mainnet"
-    ? "https://explorer.rsk.co/tx"
-    : "https://explorer.testnet.rsk.co/tx";
+  NETWORK === "testnet"
+    ? "https://explorer.testnet.rsk.co/tx"
+    : "https://explorer.rsk.co/tx";
 
 const BTC_TXID_RE = /^[0-9a-fA-F]{64}$/;
+const RSK_TXID_RE = /^0x[0-9a-fA-F]{64}$/;
+const TOAST_AUTO_DISMISS_MS = 6000;
 
 function shortenTxId(txid: string): string {
   if (txid.length <= 16) return txid;
@@ -34,10 +36,20 @@ function formatSats(sats: string): string {
 
 function formatWei(wei: string): string {
   try {
-    const rbtc = Number(BigInt(wei)) / 1e18;
-    return rbtc.toFixed(6).replace(/\.?0+$/, "");
+    const value = BigInt(wei);
+    const negative = value < 0n;
+    const abs = negative ? value * -1n : value;
+    const whole = abs / 10n ** 18n;
+    const fraction = abs % 10n ** 18n;
+    const fractionFixed = fraction
+      .toString()
+      .padStart(18, "0")
+      .slice(0, 6)
+      .replace(/0+$/, "");
+    const formatted = fractionFixed ? `${whole.toString()}.${fractionFixed}` : whole.toString();
+    return negative ? `-${formatted}` : formatted;
   } catch {
-    return wei;
+    return "Invalid amount";
   }
 }
 
@@ -109,7 +121,14 @@ function ProgressStepper({ status }: { status: ActivityStatus }) {
 function ConfirmationBar({ confirmations, required }: { confirmations: number; required: number }) {
   const pct = required > 0 ? Math.min(100, (confirmations / required) * 100) : 0;
   return (
-    <div className="conf-bar-wrap">
+    <div
+      className="conf-bar-wrap"
+      role="progressbar"
+      aria-label="Bitcoin confirmations"
+      aria-valuemin={0}
+      aria-valuemax={required}
+      aria-valuenow={Math.min(required, confirmations)}
+    >
       <div className="conf-bar-track">
         <div className="conf-bar-fill" style={{ width: `${pct}%` }} />
       </div>
@@ -127,20 +146,36 @@ function TypeTag({ type }: { type: ActivityItem["type"] }) {
     BITCOIN_MEMPOOL: "Bitcoin",
   };
   return (
-    <span className={`type-tag type-tag--${type.toLowerCase().replace("_", "-")}`}>
+    <span
+      className={`type-tag type-tag--${type.toLowerCase().replace("_", "-")}`}
+      aria-label={`Source type: ${labels[type]}`}
+    >
       {labels[type]}
     </span>
   );
 }
 
 function StatusBadge({ status }: { status: ActivityStatus }) {
+  const labelMap: Record<ActivityStatus, string> = {
+    PENDING: "Pending",
+    CONFIRMING: "Confirming",
+    BRIDGING: "Bridging",
+    COMPLETED: "Completed",
+    REFUNDED: "Refunded",
+    FAILED: "Failed",
+  };
   return (
-    <span className={`badge badge-${status.toLowerCase()}`}>{status}</span>
+    <span className={`badge badge-${status.toLowerCase()}`} aria-label={`Status: ${labelMap[status]}`}>
+      {status}
+    </span>
   );
 }
 
 function ActivityCard({ item }: { item: ActivityItem }) {
   const hasAmount = item.btcAmountSats || item.rbtcAmountWei;
+
+  const isSafeBtcTxLink = Boolean(item.btcTxId && BTC_TXID_RE.test(item.btcTxId));
+  const isSafeRskTxLink = Boolean(item.rskTxId && RSK_TXID_RE.test(item.rskTxId));
 
   return (
     <div className={`activity-card activity-card--${item.status.toLowerCase()}`}>
@@ -184,7 +219,7 @@ function ActivityCard({ item }: { item: ActivityItem }) {
       )}
 
       <div className="tx-links">
-        {item.btcTxId && (
+        {isSafeBtcTxLink && item.btcTxId && (
           <a
             className="tx-link tx-link--btc"
             href={`${EXPLORER_BTC}/${item.btcTxId}`}
@@ -194,7 +229,7 @@ function ActivityCard({ item }: { item: ActivityItem }) {
             BTC: {shortenTxId(item.btcTxId)} ↗
           </a>
         )}
-        {item.rskTxId && (
+        {isSafeRskTxLink && item.rskTxId && (
           <a
             className="tx-link tx-link--rsk"
             href={`${EXPLORER_RSK}/${item.rskTxId}`}
@@ -211,6 +246,11 @@ function ActivityCard({ item }: { item: ActivityItem }) {
   );
 }
 
+function getErrorMessage(error: unknown): React.ReactNode {
+  if (typeof error === "string") return error;
+  if (error instanceof Error) return error.message;
+  return "Failed to fetch bridge status — check network connectivity and whether the PowPeg / explorer APIs are reachable.";
+}
 
 interface Toast {
   id: string;
@@ -218,11 +258,7 @@ interface Toast {
   kind: "info" | "success" | "warning" | "error";
 }
 
-let toastSeq = 0;
-
-function eventToToast(event: BridgeNotificationEvent): Toast {
-  toastSeq += 1;
-  const id = String(toastSeq);
+function eventToToast(event: BridgeNotificationEvent, id: string): Toast {
   switch (event.type) {
     case "itemCreated":
       return { id, kind: "info", message: `New bridge activity detected (${event.item.type})` };
@@ -233,11 +269,11 @@ function eventToToast(event: BridgeNotificationEvent): Toast {
         message: `Status: ${event.previousStatus} → ${event.item.status}`,
       };
     case "completed":
-      return { id, kind: "success", message: "✓ Bridge complete — RBTC arrived!" };
+      return { id, kind: "success", message: "Bridge complete — RBTC arrived." };
     case "refunded":
-      return { id, kind: "warning", message: "⚠ Transfer was refunded" };
+      return { id, kind: "warning", message: "Transfer was refunded." };
     case "failed":
-      return { id, kind: "error", message: "✕ Bridge transfer failed" };
+      return { id, kind: "error", message: "Bridge transfer failed." };
   }
 }
 
@@ -274,13 +310,20 @@ export function App() {
   const [trackedQuoteHashes, setTrackedQuoteHashes] = useState<string[]>([]);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const dismissTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  const toastSeqRef = useRef(0);
+  const [feedAnnouncement, setFeedAnnouncement] = useState("");
+
+  const nextToastId = useCallback(() => {
+    toastSeqRef.current += 1;
+    return String(toastSeqRef.current);
+  }, []);
 
   const addToast = useCallback((toast: Toast) => {
     setToasts((prev) => [...prev, toast]);
     const timer = setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== toast.id));
       dismissTimers.current.delete(toast.id);
-    }, 6000);
+    }, TOAST_AUTO_DISMISS_MS);
     dismissTimers.current.set(toast.id, timer);
   }, []);
 
@@ -299,8 +342,8 @@ export function App() {
   }, []);
 
   const handleEvent = useCallback(
-    (event: BridgeNotificationEvent) => { addToast(eventToToast(event)); },
-    [addToast]
+    (event: BridgeNotificationEvent) => { addToast(eventToToast(event, nextToastId())); },
+    [addToast, nextToastId]
   );
 
   const hasFlyoverQuotes = trackedQuoteHashes.length > 0;
@@ -360,13 +403,22 @@ export function App() {
 
   const hasAnySources = trackedTxIds.length > 0 || trackedQuoteHashes.length > 0;
 
+  useEffect(() => {
+    const count = items.length;
+    document.title =
+      count > 0 ? `(${count}) Rsk Activity Feed – Dashboard Demo` : "Rsk Activity Feed – Dashboard Demo";
+    if (count > 0) {
+      setFeedAnnouncement(`${count} incoming fund item${count > 1 ? "s" : ""} in the feed.`);
+    }
+  }, [items.length]);
+
   return (
     <div className="page">
       <header className="header">
         <div className="header-inner">
           <div>
             <h1 className="header-title">
-              <span className="header-logo">⛓</span> RSK Activity Feed
+              <span className="header-logo" aria-hidden="true">⛓</span> RSK Activity Feed
             </h1>
             <p className="header-subtitle">
               "Where is my money?" — real-time BTC → Rootstock bridge tracker
@@ -391,7 +443,9 @@ export function App() {
           </p>
 
           <div className="input-row">
+            <label htmlFor="btc-txid-input" className="sr-only">Bitcoin transaction id</label>
             <input
+              id="btc-txid-input"
               className={`tx-input${txIdError ? " tx-input--error" : ""}`}
               placeholder="BTC txid — 64 hex characters…"
               value={txIdInput}
@@ -420,7 +474,7 @@ export function App() {
                   <button
                     className="chip-remove"
                     onClick={() => handleRemoveTxId(txid)}
-                    aria-label="Remove"
+                    aria-label={`Remove tracked txid ${shortenTxId(txid)}`}
                   >
                     ×
                   </button>
@@ -435,6 +489,7 @@ export function App() {
             className="collapsible-header"
             onClick={() => setFlyoverOpen((v) => !v)}
             aria-expanded={flyoverOpen}
+            aria-controls="flyover-panel"
           >
             <div>
               <h2 className="card-title" style={{ margin: 0 }}>Track via Flyover</h2>
@@ -445,10 +500,11 @@ export function App() {
             <span className="collapsible-chevron">{flyoverOpen ? "▲" : "▼"}</span>
           </button>
 
-          {flyoverOpen && (
-            <div className="collapsible-body">
+          <div className="collapsible-body" id="flyover-panel" hidden={!flyoverOpen}>
               <div className="input-row" style={{ marginTop: "0.75rem" }}>
+                <label htmlFor="flyover-lp-url-input" className="sr-only">Flyover LP API URL</label>
                 <input
+                  id="flyover-lp-url-input"
                   className="tx-input"
                   placeholder="LP API URL (e.g. https://lps.testnet.rootstock.io)"
                   value={lpsUrl}
@@ -456,7 +512,9 @@ export function App() {
                 />
               </div>
               <div className="input-row">
+                <label htmlFor="flyover-quote-hash-input" className="sr-only">Flyover quote hash</label>
                 <input
+                  id="flyover-quote-hash-input"
                   className="tx-input"
                   placeholder="Quote hash (0x…)"
                   value={quoteHashInput}
@@ -480,7 +538,7 @@ export function App() {
                       <button
                         className="chip-remove"
                         onClick={() => handleRemoveQuoteHash(hash)}
-                        aria-label="Remove"
+                        aria-label={`Remove tracked quote hash ${shortenTxId(hash)}`}
                       >
                         ×
                       </button>
@@ -495,10 +553,10 @@ export function App() {
                 <strong>not</strong> required at runtime — only the LP URL and hash are needed.
               </p>
             </div>
-          )}
         </section>
 
         <section>
+          <div className="sr-only" aria-live="polite">{feedAnnouncement}</div>
           <div className="feed-header">
             <h2 className="card-title feed-title">Incoming Funds</h2>
             {items.length > 0 && (
@@ -508,16 +566,15 @@ export function App() {
             )}
           </div>
 
-          {error && (
+          {error ? (
             <div className="alert alert-error">
-              Failed to fetch bridge status — check network connectivity and whether the
-              PowPeg / explorer APIs are reachable.
+              {String(getErrorMessage(error))}
             </div>
-          )}
+          ) : null}
 
           {!hasAnySources && (
             <div className="empty-state">
-              <div className="empty-icon">📭</div>
+              <div className="empty-icon" aria-hidden="true">📭</div>
               <p>Add a BTC txid or Flyover quote hash above to start tracking.</p>
               <p className="empty-hint">
                 The feed polls the Bitcoin mempool, PowPeg 2wp-api, and Flyover LP server and
@@ -528,7 +585,7 @@ export function App() {
 
           {hasAnySources && items.length === 0 && !isLoading && !error && (
             <div className="empty-state">
-              <div className="empty-icon">🔍</div>
+              <div className="empty-icon" aria-hidden="true">🔍</div>
               <p>No bridge activity found yet.</p>
               <p className="empty-hint">
                 The transaction may not be in the PowPeg queue yet, or the txid may be

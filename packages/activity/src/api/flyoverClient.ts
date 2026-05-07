@@ -1,4 +1,6 @@
 import axios, { type AxiosInstance } from "axios";
+import { z } from "zod";
+import { assertHttpUrl, normalizeOptionalBtcTxId } from "../utils/validation";
 export interface FlyoverLiquidityProvider {
   provider: string;
   apiBaseUrl: string;
@@ -10,6 +12,7 @@ export interface FlyoverClientOptions {
   provider: FlyoverLiquidityProvider;
   timeoutMs?: number;
   axiosInstance?: AxiosInstance;
+  signal?: AbortSignal;
 }
 
 export interface FlyoverPeginStatus {
@@ -23,6 +26,46 @@ export interface FlyoverPeginStatus {
   rbtcAmountWei?: string;
   requiredConfirmations?: number;
 }
+
+export type FlyoverClientErrorCode =
+  | "NETWORK"
+  | "TIMEOUT"
+  | "SERVER"
+  | "INVALID_RESPONSE";
+
+export class FlyoverClientError extends Error {
+  readonly code: FlyoverClientErrorCode;
+  readonly statusCode?: number;
+  readonly cause?: unknown;
+
+  constructor(message: string, code: FlyoverClientErrorCode, statusCode?: number, cause?: unknown) {
+    super(message);
+    this.name = "FlyoverClientError";
+    this.code = code;
+    this.statusCode = statusCode;
+    this.cause = cause;
+  }
+}
+
+const flyoverSchema = z.object({
+  status: z
+    .object({
+      quoteHash: z.string().optional(),
+      state: z.string().optional(),
+      userBtcTxHash: z.string().optional(),
+      callForUserTxHash: z.string().optional(),
+      registerPeginTxHash: z.string().optional(),
+    })
+    .optional(),
+  detail: z
+    .object({
+      btcRefundAddr: z.string().optional(),
+      rskRefundAddr: z.string().optional(),
+      value: z.union([z.string(), z.bigint()]).optional(),
+      confirmations: z.number().optional(),
+    })
+    .optional(),
+});
 function deriveSimpleStatus(state: string): FlyoverSimpleStatus {
   if (state === "CallForUserSucceeded" || state === "RegisterPegInSucceeded") {
     return "SUCCESS";
@@ -40,7 +83,7 @@ export async function fetchFlyoverPeginStatusByQuoteHash(
   quoteHash: string,
   options: FlyoverClientOptions
 ): Promise<FlyoverPeginStatus | null> {
-  const baseUrl = options.provider.apiBaseUrl.replace(/\/+$/, "");
+  const baseUrl = assertHttpUrl(options.provider.apiBaseUrl, "provider.apiBaseUrl");
   const client =
     options.axiosInstance ??
     axios.create({ timeout: options.timeoutMs ?? 10_000 });
@@ -49,24 +92,65 @@ export async function fetchFlyoverPeginStatusByQuoteHash(
   try {
     response = await client.get(`${baseUrl}/pegin/status`, {
       params: { quoteHash },
+      signal: options.signal,
     });
   } catch (err: unknown) {
     if (axios.isAxiosError(err)) {
       const status = err.response?.status;
       if (status === 404 || status === 400) return null;
+      if (err.code === "ECONNABORTED") {
+        throw new FlyoverClientError(
+          "Timeout while calling Flyover LP API",
+          "TIMEOUT",
+          status,
+          err
+        );
+      }
+      if (status && status >= 500) {
+        throw new FlyoverClientError(
+          "Server error while calling Flyover LP API",
+          "SERVER",
+          status,
+          err
+        );
+      }
+      throw new FlyoverClientError(
+        "Network error while calling Flyover LP API",
+        "NETWORK",
+        status,
+        err
+      );
     }
-    throw err;
+    throw new FlyoverClientError(
+      "Unexpected error while calling Flyover LP API",
+      "NETWORK",
+      undefined,
+      err
+    );
   }
 
-  const raw = response.data as Record<string, unknown>;
-  if (!raw || typeof raw !== "object") return null;
+  const parsed = flyoverSchema.safeParse(response.data);
+  if (!parsed.success) {
+    throw new FlyoverClientError(
+      "Invalid Flyover API response: expected object",
+      "INVALID_RESPONSE",
+      response.status
+    );
+  }
+  const raw = parsed.data;
 
-  const statusDto = raw.status as Record<string, unknown> | undefined;
-  const detailDto = raw.detail as Record<string, unknown> | undefined;
+  const statusDto = raw.status;
+  const detailDto = raw.detail;
 
-  if (!statusDto) return null;
+  if (!statusDto) {
+    throw new FlyoverClientError(
+      "Invalid Flyover API response: missing status object",
+      "INVALID_RESPONSE",
+      response.status
+    );
+  }
 
-  const rawState = typeof statusDto.state === "string" ? statusDto.state : "";
+  const rawState = statusDto.state ?? "";
 
   const rskTxId =
     (typeof statusDto.callForUserTxHash === "string" &&
@@ -74,6 +158,7 @@ export async function fetchFlyoverPeginStatusByQuoteHash(
     (typeof statusDto.registerPeginTxHash === "string" &&
       statusDto.registerPeginTxHash) ||
     undefined;
+  const normalizedBtcTxId = normalizeOptionalBtcTxId(statusDto.userBtcTxHash);
 
   const rbtcAmountWei =
     typeof detailDto?.value === "bigint"
@@ -84,14 +169,11 @@ export async function fetchFlyoverPeginStatusByQuoteHash(
 
   return {
     quoteHash:
-      (typeof statusDto.quoteHash === "string" && statusDto.quoteHash) ||
+      statusDto.quoteHash ||
       quoteHash,
     rawState,
     simpleStatus: deriveSimpleStatus(rawState),
-    btcTxId:
-      (typeof statusDto.userBtcTxHash === "string" &&
-        statusDto.userBtcTxHash) ||
-      undefined,
+    btcTxId: normalizedBtcTxId,
     rskTxId,
     btcAddress:
       (typeof detailDto?.btcRefundAddr === "string" &&

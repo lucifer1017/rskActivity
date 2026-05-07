@@ -1,4 +1,6 @@
 import axios, { type AxiosInstance } from "axios";
+import { z } from "zod";
+import { normalizeBtcTxId, normalizeOptionalBtcTxId } from "../utils/validation";
 
 export type PowpegBridgeSide = "pegin" | "pegout";
 
@@ -21,13 +23,22 @@ export interface PowpegStatus {
   confirmations?: number;
   requiredConfirmations?: number;
   highLevelStatus: PowpegHighLevelStatus;
-  raw: unknown;
+  raw: {
+    status?: string;
+    state?: string;
+    btcTxId?: string;
+    rskTxId?: string;
+    confirmations?: number;
+    requiredConfirmations?: number;
+    hasRefundHint: boolean;
+  };
 }
 
 export interface PowpegClientOptions {
   baseUrl: string;
   timeoutMs?: number;
   axiosInstance?: AxiosInstance;
+  signal?: AbortSignal;
 }
 
 export type PowpegClientErrorCode =
@@ -49,6 +60,35 @@ export class PowpegClientError extends Error {
     this.cause = cause;
   }
 }
+
+const powpegSchema = z.object({
+  id: z.string().optional(),
+  _id: z.string().optional(),
+  side: z.string().optional(),
+  bridgeType: z.string().optional(),
+  btcTxId: z.string().optional(),
+  btcTxHash: z.string().optional(),
+  rskTxId: z.string().optional(),
+  rskTxHash: z.string().optional(),
+  btcAddress: z.string().optional(),
+  senderBtcAddress: z.string().optional(),
+  rskAddress: z.string().optional(),
+  destinationRskAddress: z.string().optional(),
+  confirmations: z.number().optional(),
+  btcConfirmations: z.number().optional(),
+  requiredConfirmations: z.number().optional(),
+  btcRequiredConfirmations: z.number().optional(),
+  status: z.string().optional(),
+  state: z.string().optional(),
+  refund: z.unknown().optional(),
+  refundTxId: z.unknown().optional(),
+  refundTxHash: z.unknown().optional(),
+  refundBtcAddress: z.unknown().optional(),
+  btcAmountSats: z.string().optional(),
+  btcAmount: z.number().optional(),
+  rbtcAmountWei: z.string().optional(),
+  rskAmount: z.number().optional(),
+}).passthrough();
 
 function normalizeHighLevelStatus(input?: string | null, hasRefund?: boolean): PowpegHighLevelStatus {
   const value = (input ?? "").toLowerCase();
@@ -76,12 +116,17 @@ function normalizeHighLevelStatus(input?: string | null, hasRefund?: boolean): P
     return "PENDING";
   }
 
-  return "PROCESSING";
+  return "PENDING";
 }
 export async function fetchPowpegStatusByBtcTxId(
   btcTxId: string,
   options: PowpegClientOptions
 ): Promise<PowpegStatus | null> {
+  const normalizedInputTxId = normalizeBtcTxId(btcTxId);
+  if (!normalizedInputTxId) {
+    throw new PowpegClientError("Invalid btcTxId format", "INVALID_RESPONSE");
+  }
+
   const timeoutMs = options.timeoutMs ?? 10_000;
 
   const client =
@@ -90,11 +135,11 @@ export async function fetchPowpegStatusByBtcTxId(
       baseURL: options.baseUrl.replace(/\/+$/, ""),
       timeout: timeoutMs,
     });
-  const url = `/api/v1/pegins/${encodeURIComponent(btcTxId)}`;
+  const url = `/api/v1/pegins/${encodeURIComponent(normalizedInputTxId)}`;
 
   let response;
   try {
-    response = await client.get(url);
+    response = await client.get(url, { signal: options.signal });
   } catch (err: unknown) {
     const statusCode = axios.isAxiosError(err) ? err.response?.status : undefined;
     const errorCode = axios.isAxiosError(err) ? err.code : undefined;
@@ -129,20 +174,20 @@ export async function fetchPowpegStatusByBtcTxId(
     );
   }
 
-  const raw = response.data as Record<string, unknown>;
-
-  if (!raw || typeof raw !== "object") {
+  const parsed = powpegSchema.safeParse(response.data);
+  if (!parsed.success) {
     throw new PowpegClientError(
       "Invalid PowPeg API response: expected JSON object",
       "INVALID_RESPONSE",
       response.status
     );
   }
+  const raw = parsed.data;
 
   const id: string =
     (typeof raw.id === "string" && raw.id) ||
     (typeof raw._id === "string" && raw._id) ||
-    btcTxId;
+    normalizedInputTxId;
 
   const side: PowpegBridgeSide =
     raw.side === "pegout" || raw.bridgeType === "pegout" ? "pegout" : "pegin";
@@ -150,7 +195,9 @@ export async function fetchPowpegStatusByBtcTxId(
   const btcHash: string =
     (typeof raw.btcTxId === "string" && raw.btcTxId) ||
     (typeof raw.btcTxHash === "string" && raw.btcTxHash) ||
-    btcTxId;
+    normalizedInputTxId;
+
+  const normalizedBtcHash = normalizeOptionalBtcTxId(btcHash) ?? normalizedInputTxId;
 
   const rskTxId: string | undefined =
     (typeof raw.rskTxId === "string" && raw.rskTxId) ||
@@ -212,7 +259,7 @@ export async function fetchPowpegStatusByBtcTxId(
   return {
     id,
     side,
-    btcTxId: btcHash,
+    btcTxId: normalizedBtcHash,
     rskTxId,
     btcAddress,
     rskAddress,
@@ -221,7 +268,15 @@ export async function fetchPowpegStatusByBtcTxId(
     confirmations,
     requiredConfirmations,
     highLevelStatus,
-    raw,
+    raw: {
+      status: statusText,
+      state: typeof raw.state === "string" ? raw.state : undefined,
+      btcTxId: normalizedBtcHash,
+      rskTxId,
+      confirmations,
+      requiredConfirmations,
+      hasRefundHint: hasRefund,
+    },
   };
 }
 

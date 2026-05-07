@@ -14,6 +14,7 @@ export interface ResolvedActivityConfig {
 }
 
 const DEFAULT_POLLING_MS = 20_000;
+const MIN_POLLING_MS = 5_000;
 const MAINNET_POWPEG = "https://api.2wp.rootstock.io";
 const TESTNET_POWPEG = "https://api.2wp.testnet.rootstock.io";
 const MAINNET_BTC = "https://mempool.space/api";
@@ -34,7 +35,10 @@ function defaultBtcUrl(network: NetworkName): string {
 export function resolveConfig(input?: ActivityConfig): ResolvedActivityConfig {
   const network: NetworkName = input?.network ?? "testnet";
 
-  const globalPolling = input?.pollingIntervalMs ?? DEFAULT_POLLING_MS;
+  const globalPolling = Math.max(
+    MIN_POLLING_MS,
+    input?.pollingIntervalMs ?? DEFAULT_POLLING_MS
+  );
 
   const powpegApiBaseUrl =
     (input?.powpegApiBaseUrl ?? defaultPowpegUrl(network)).replace(/\/+$/, "");
@@ -46,9 +50,18 @@ export function resolveConfig(input?: ActivityConfig): ResolvedActivityConfig {
     powpegApiBaseUrl,
     btcExplorerBaseUrl,
     pollingIntervalMs: globalPolling,
-    btcPollingIntervalMs: input?.btcPollingIntervalMs ?? globalPolling,
-    powpegPollingIntervalMs: input?.powpegPollingIntervalMs ?? globalPolling,
-    flyoverPollingIntervalMs: input?.flyoverPollingIntervalMs ?? globalPolling,
+    btcPollingIntervalMs: Math.max(
+      MIN_POLLING_MS,
+      input?.btcPollingIntervalMs ?? globalPolling
+    ),
+    powpegPollingIntervalMs: Math.max(
+      MIN_POLLING_MS,
+      input?.powpegPollingIntervalMs ?? globalPolling
+    ),
+    flyoverPollingIntervalMs: Math.max(
+      MIN_POLLING_MS,
+      input?.flyoverPollingIntervalMs ?? globalPolling
+    ),
     enableMempoolSniffer: input?.enableMempoolSniffer ?? true,
     enablePowpeg: input?.enablePowpeg ?? true,
     enableFlyover: input?.enableFlyover ?? true,

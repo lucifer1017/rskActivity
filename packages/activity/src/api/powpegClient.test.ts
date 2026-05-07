@@ -22,16 +22,17 @@ function axiosErrorClient(httpStatus: number, code?: string): AxiosInstance {
 const CLIENT_OPTS = {
   baseUrl: "https://api.2wp.testnet.rootstock.io",
 };
+const TXID = "a".repeat(64);
 
 const MINIMAL_RESPONSE = {
-  btcTxId: "abc123",
+  btcTxId: TXID,
   status: "completed",
 };
 
 describe("fetchPowpegStatusByBtcTxId", () => {
   it("returns null for 404 response", async () => {
     const client = axiosErrorClient(404);
-    const result = await fetchPowpegStatusByBtcTxId("abc123", {
+    const result = await fetchPowpegStatusByBtcTxId(TXID, {
       ...CLIENT_OPTS,
       axiosInstance: client,
     });
@@ -42,14 +43,14 @@ describe("fetchPowpegStatusByBtcTxId", () => {
   it("throws PowpegClientError with TIMEOUT code on ECONNABORTED", async () => {
     const client = axiosErrorClient(408, "ECONNABORTED");
     await expect(
-      fetchPowpegStatusByBtcTxId("abc123", {
+      fetchPowpegStatusByBtcTxId(TXID, {
         ...CLIENT_OPTS,
         axiosInstance: client,
       })
     ).rejects.toBeInstanceOf(PowpegClientError);
 
     try {
-      await fetchPowpegStatusByBtcTxId("abc123", {
+      await fetchPowpegStatusByBtcTxId(TXID, {
         ...CLIENT_OPTS,
         axiosInstance: client,
       });
@@ -61,7 +62,7 @@ describe("fetchPowpegStatusByBtcTxId", () => {
   it("throws PowpegClientError with SERVER code on 5xx", async () => {
     const client = axiosErrorClient(503);
     try {
-      await fetchPowpegStatusByBtcTxId("abc123", {
+      await fetchPowpegStatusByBtcTxId(TXID, {
         ...CLIENT_OPTS,
         axiosInstance: client,
       });
@@ -73,20 +74,20 @@ describe("fetchPowpegStatusByBtcTxId", () => {
   });
 
   it("maps 'completed' status string to COMPLETED", async () => {
-    const client = mockClient({ btcTxId: "abc123", status: "completed" });
-    const result = await fetchPowpegStatusByBtcTxId("abc123", {
+    const client = mockClient({ btcTxId: TXID, status: "completed" });
+    const result = await fetchPowpegStatusByBtcTxId(TXID, {
       ...CLIENT_OPTS,
       axiosInstance: client,
     });
 
     expect(result).not.toBeNull();
     expect(result?.highLevelStatus).toBe("COMPLETED");
-    expect(result?.btcTxId).toBe("abc123");
+    expect(result?.btcTxId).toBe(TXID);
   });
 
   it("maps 'processing' status string to PROCESSING", async () => {
-    const client = mockClient({ btcTxId: "abc123", status: "processing" });
-    const result = await fetchPowpegStatusByBtcTxId("abc123", {
+    const client = mockClient({ btcTxId: TXID, status: "processing" });
+    const result = await fetchPowpegStatusByBtcTxId(TXID, {
       ...CLIENT_OPTS,
       axiosInstance: client,
     });
@@ -94,9 +95,18 @@ describe("fetchPowpegStatusByBtcTxId", () => {
     expect(result?.highLevelStatus).toBe("PROCESSING");
   });
 
+  it("maps unknown status to PENDING fail-safe", async () => {
+    const client = mockClient({ btcTxId: TXID, status: "new-api-state" });
+    const result = await fetchPowpegStatusByBtcTxId(TXID, {
+      ...CLIENT_OPTS,
+      axiosInstance: client,
+    });
+    expect(result?.highLevelStatus).toBe("PENDING");
+  });
+
   it("maps 'failed' status string to FAILED", async () => {
-    const client = mockClient({ btcTxId: "abc123", status: "failed" });
-    const result = await fetchPowpegStatusByBtcTxId("abc123", {
+    const client = mockClient({ btcTxId: TXID, status: "failed" });
+    const result = await fetchPowpegStatusByBtcTxId(TXID, {
       ...CLIENT_OPTS,
       axiosInstance: client,
     });
@@ -106,11 +116,11 @@ describe("fetchPowpegStatusByBtcTxId", () => {
 
   it("maps refund object presence to REFUNDED status", async () => {
     const client = mockClient({
-      btcTxId: "abc123",
+      btcTxId: TXID,
       status: "pending",
       refund: { txHash: "refundtx" },
     });
-    const result = await fetchPowpegStatusByBtcTxId("abc123", {
+    const result = await fetchPowpegStatusByBtcTxId(TXID, {
       ...CLIENT_OPTS,
       axiosInstance: client,
     });
@@ -120,12 +130,12 @@ describe("fetchPowpegStatusByBtcTxId", () => {
 
   it("extracts confirmations and requiredConfirmations", async () => {
     const client = mockClient({
-      btcTxId: "abc123",
+      btcTxId: TXID,
       status: "processing",
       confirmations: 5,
       requiredConfirmations: 100,
     });
-    const result = await fetchPowpegStatusByBtcTxId("abc123", {
+    const result = await fetchPowpegStatusByBtcTxId(TXID, {
       ...CLIENT_OPTS,
       axiosInstance: client,
     });
@@ -135,30 +145,32 @@ describe("fetchPowpegStatusByBtcTxId", () => {
   });
 
   it("accepts btcTxHash field name as alias for btcTxId", async () => {
-    const client = mockClient({ btcTxHash: "tx-from-hash-field", status: "pending" });
-    const result = await fetchPowpegStatusByBtcTxId("tx-from-hash-field", {
+    const client = mockClient({ btcTxHash: TXID, status: "pending" });
+    const result = await fetchPowpegStatusByBtcTxId(TXID, {
       ...CLIENT_OPTS,
       axiosInstance: client,
     });
 
-    expect(result?.btcTxId).toBe("tx-from-hash-field");
+    expect(result?.btcTxId).toBe(TXID);
   });
 
   it("preserves raw response on result", async () => {
-    const rawData = { btcTxId: "abc123", status: "completed", extra: 42 };
+    const rawData = { btcTxId: TXID, status: "completed", extra: 42 };
     const client = mockClient(rawData);
-    const result = await fetchPowpegStatusByBtcTxId("abc123", {
+    const result = await fetchPowpegStatusByBtcTxId(TXID, {
       ...CLIENT_OPTS,
       axiosInstance: client,
     });
 
-    expect(result?.raw).toEqual(rawData);
+    expect(result?.raw.status).toBe("completed");
+    expect(result?.raw.btcTxId).toBe(TXID);
+    expect(result?.raw.hasRefundHint).toBe(false);
   });
 
   it("throws PowpegClientError for non-object responses", async () => {
     const client = mockClient("not an object");
     await expect(
-      fetchPowpegStatusByBtcTxId("abc123", {
+      fetchPowpegStatusByBtcTxId(TXID, {
         ...CLIENT_OPTS,
         axiosInstance: client,
       })
@@ -167,11 +179,11 @@ describe("fetchPowpegStatusByBtcTxId", () => {
 
   it("uses btcTxId from options as fallback id when not in response", async () => {
     const client = mockClient(MINIMAL_RESPONSE);
-    const result = await fetchPowpegStatusByBtcTxId("abc123", {
+    const result = await fetchPowpegStatusByBtcTxId(TXID, {
       ...CLIENT_OPTS,
       axiosInstance: client,
     });
 
-    expect(result?.id).toBe("abc123");
+    expect(result?.id).toBe(TXID);
   });
 });

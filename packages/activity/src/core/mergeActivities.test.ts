@@ -44,10 +44,7 @@ describe("mergeActivities", () => {
     expect(result.items[0].id).toBe(id);
     expect(result.items[0].status).toBe("COMPLETED");
     expect(result.items[0].type).toBe("POWPEG");
-    expect(result.events.map((event) => event.type)).toEqual([
-      "itemCreated",
-      "completed",
-    ]);
+    expect(result.events.map((event) => event.type)).toEqual(["itemCreated"]);
   });
 
   it("emits a single net status change per cycle", () => {
@@ -146,6 +143,15 @@ describe("mergeActivities", () => {
 
     const result = mergeActivities([], [[older, newer]]);
     expect(result.items.map((item) => item.id)).toEqual([newer.id, older.id]);
+  });
+
+  it("does not allow mempool source to emit terminal states", () => {
+    const id = makeActivityId("BTC", "mempool-terminal");
+    const result = mergeActivities(
+      [],
+      [[makeItem(id, "COMPLETED", "BITCOIN_MEMPOOL", "2026-01-01T00:00:00.000Z", "2026-01-01T00:00:00.000Z")]]
+    );
+    expect(result.items[0].status).toBe("CONFIRMING");
   });
 });
 

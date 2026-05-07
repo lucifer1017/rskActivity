@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ActivityItem } from "../types/activity";
 import type { ActivityConfig } from "../types/config";
 import type { BridgeNotificationEvent } from "../types/events";
@@ -13,16 +13,27 @@ import {
   createPowpegFetchActivities,
 } from "../api/activityFetchers";
 import type { FlyoverLiquidityProvider } from "../api/flyoverClient";
+import { normalizeBtcTxId } from "../utils/validation";
 
-function normalizeTxIds(txIds?: string[]): string[] {
+function normalizeBtcTxIds(txIds?: string[]): string[] {
   if (!txIds || txIds.length === 0) return [];
+  const normalized = txIds
+    .map((v) => normalizeBtcTxId(v))
+    .filter((v): v is string => Boolean(v));
   return Array.from(
-    new Set(txIds.map((v) => v.trim()).filter((v) => v.length > 0))
+    new Set(normalized)
+  );
+}
+
+function normalizeGenericIds(values?: string[]): string[] {
+  if (!values || values.length === 0) return [];
+  return Array.from(
+    new Set(values.map((v) => v.trim()).filter((v) => v.length > 0))
   );
 }
 
 function txIdsKey(txIds?: string[]): string {
-  return normalizeTxIds(txIds).join("|");
+  return normalizeGenericIds(txIds).join("|");
 }
 
 export interface UseBridgeNotificationsOptions {
@@ -52,6 +63,7 @@ export function useBridgeNotifications(
   const [error, setError] = useState<unknown>(null);
 
   const managerRef = useRef<PollingManager | null>(null);
+  const inFlightRef = useRef(0);
   const onEventRef = useRef<UseBridgeNotificationsOptions["onEvent"]>();
 
   useEffect(() => {
@@ -86,15 +98,15 @@ export function useBridgeNotifications(
   const flyoverHashesKey = txIdsKey(options.flyover?.quoteHashes);
 
   const btcTxIds = useMemo(
-    () => normalizeTxIds(options.btcTxIds),
+    () => normalizeBtcTxIds(options.btcTxIds),
     [btcTxIdsKey]
   );
   const powpegBtcTxIds = useMemo(
-    () => normalizeTxIds(options.powpegBtcTxIds ?? options.btcTxIds),
+    () => normalizeBtcTxIds(options.powpegBtcTxIds ?? options.btcTxIds),
     [powpegTxIdsKey]
   );
   const flyoverQuoteHashes = useMemo(
-    () => normalizeTxIds(options.flyover?.quoteHashes),
+    () => normalizeGenericIds(options.flyover?.quoteHashes),
     [flyoverHashesKey]
   );
 
@@ -128,6 +140,7 @@ export function useBridgeNotifications(
     if (!fetchBtc && !fetchPowpeg && !fetchFlyover) {
       setItems([]);
       setIsLoading(false);
+      setError(null);
       managerRef.current = null;
       return;
     }
@@ -140,7 +153,6 @@ export function useBridgeNotifications(
       onUpdate(nextItems, events) {
         setItems(nextItems);
         setError(null);
-        setIsLoading(false);
         const handler = onEventRef.current;
         if (handler) {
           for (const event of events) {
@@ -150,16 +162,20 @@ export function useBridgeNotifications(
       },
       onError(err) {
         setError(err);
-        setIsLoading(false);
+      },
+      onPollStateChange(inFlightCount) {
+        inFlightRef.current = inFlightCount;
+        setIsLoading(inFlightCount > 0);
       },
     });
 
     managerRef.current = manager;
-    setIsLoading(true);
     manager.start();
 
     return () => {
       manager.stop();
+      inFlightRef.current = 0;
+      setIsLoading(false);
       managerRef.current = null;
     };
   }, [
@@ -177,11 +193,10 @@ export function useBridgeNotifications(
     options.flyover?.provider?.apiBaseUrl,
   ]);
 
-  const refresh = () => {
+  const refresh = useCallback(() => {
     if (!managerRef.current) return;
-    setIsLoading(true);
     managerRef.current.forceRefresh();
-  };
+  }, []);
 
   return { items, isLoading, error, refresh };
 }

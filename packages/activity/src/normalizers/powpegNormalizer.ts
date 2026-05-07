@@ -1,7 +1,7 @@
 import type { ActivityItem, ActivityStatus } from "../types/activity";
 import type { PowpegStatus } from "../api/powpegClient";
 import { makeActivityId } from "../utils/activityId";
-const BTC_BLOCK_MIN = 10;
+import { estimateEtaFromConfirmations } from "./eta";
 
 function mapHighLevelToActivityStatus(
   highLevel: PowpegStatus["highLevelStatus"]
@@ -23,32 +23,6 @@ function mapHighLevelToActivityStatus(
     }
   }
 }
-function estimateEtaMinutes(
-  status: ActivityStatus,
-  confirmations?: number,
-  requiredConfirmations?: number
-): number | null {
-  if (status === "COMPLETED" || status === "FAILED" || status === "REFUNDED") {
-    return null;
-  }
-
-  if (
-    (status === "PENDING" || status === "CONFIRMING" || status === "BRIDGING") &&
-    confirmations !== undefined &&
-    requiredConfirmations !== undefined &&
-    requiredConfirmations > 0
-  ) {
-    const remaining = Math.max(0, requiredConfirmations - confirmations);
-    return remaining * BTC_BLOCK_MIN + 5;
-  }
-
-  if (status === "PENDING") return 15;
-  if (status === "CONFIRMING") return 30;
-  if (status === "BRIDGING") return 10;
-
-  return null;
-}
-
 function buildDescription(
   status: ActivityStatus,
   confirmations?: number,
@@ -102,7 +76,7 @@ export function normalizePowpegStatusToActivityItem(
     rbtcAmountWei: status.rbtcAmountWei,
     confirmations: status.confirmations,
     requiredConfirmations: status.requiredConfirmations,
-    etaMinutes: estimateEtaMinutes(
+    etaMinutes: estimateEtaFromConfirmations(
       activityStatus,
       status.confirmations,
       status.requiredConfirmations

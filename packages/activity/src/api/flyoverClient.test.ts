@@ -1,11 +1,15 @@
 import { describe, it, expect, vi } from "vitest";
 import type { AxiosInstance } from "axios";
-import { fetchFlyoverPeginStatusByQuoteHash } from "./flyoverClient";
+import {
+  fetchFlyoverPeginStatusByQuoteHash,
+  FlyoverClientError,
+} from "./flyoverClient";
 
 const PROVIDER = {
   provider: "0xLiquidityProviderRskAddress",
   apiBaseUrl: "https://lps.testnet.example.com",
 };
+const BTC_TXID = "a".repeat(64);
 
 function mockClient(data: unknown, status = 200): AxiosInstance {
   return {
@@ -84,7 +88,7 @@ describe("fetchFlyoverPeginStatusByQuoteHash", () => {
         ...baseStatusDto,
         state: "CallForUserSucceeded",
         callForUserTxHash: "0xcall4user",
-        userBtcTxHash: "btctxhash",
+        userBtcTxHash: BTC_TXID,
       },
       detail: baseDetailDto,
     });
@@ -95,7 +99,7 @@ describe("fetchFlyoverPeginStatusByQuoteHash", () => {
 
     expect(result?.simpleStatus).toBe("SUCCESS");
     expect(result?.rskTxId).toBe("0xcall4user");
-    expect(result?.btcTxId).toBe("btctxhash");
+    expect(result?.btcTxId).toBe(BTC_TXID);
   });
 
   it("maps RegisterPegInSucceeded → SUCCESS simpleStatus", async () => {
@@ -182,7 +186,7 @@ describe("fetchFlyoverPeginStatusByQuoteHash", () => {
         provider: PROVIDER,
         axiosInstance: client,
       })
-    ).rejects.toThrow();
+    ).rejects.toBeInstanceOf(FlyoverClientError);
   });
 
   it("rethrows network errors", async () => {
@@ -192,17 +196,17 @@ describe("fetchFlyoverPeginStatusByQuoteHash", () => {
         provider: PROVIDER,
         axiosInstance: client,
       })
-    ).rejects.toThrow();
+    ).rejects.toBeInstanceOf(FlyoverClientError);
   });
 
-  it("returns null when response has no status object", async () => {
+  it("throws for invalid response when status is missing", async () => {
     const client = mockClient({ detail: baseDetailDto });
-    const result = await fetchFlyoverPeginStatusByQuoteHash("0xhash", {
-      provider: PROVIDER,
-      axiosInstance: client,
-    });
-
-    expect(result).toBeNull();
+    await expect(
+      fetchFlyoverPeginStatusByQuoteHash("0xhash", {
+        provider: PROVIDER,
+        axiosInstance: client,
+      })
+    ).rejects.toBeInstanceOf(FlyoverClientError);
   });
 
   it("falls back to input quoteHash if not in response", async () => {
@@ -216,5 +220,13 @@ describe("fetchFlyoverPeginStatusByQuoteHash", () => {
     });
 
     expect(result?.quoteHash).toBe("fallback-hash");
+  });
+
+  it("rejects non-http provider URLs", async () => {
+    await expect(
+      fetchFlyoverPeginStatusByQuoteHash("0xhash", {
+        provider: { ...PROVIDER, apiBaseUrl: "javascript:alert(1)" },
+      })
+    ).rejects.toThrow("provider.apiBaseUrl");
   });
 });

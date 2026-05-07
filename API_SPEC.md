@@ -1,4 +1,4 @@
-## Rsk Activity-Feed – Public API Spec (v0.1)
+## Rsk Activity-Feed – Public API Spec (v0.2)
 
 This document defines the **public contracts** of `@rootstock-kits/activity`.
 
@@ -113,6 +113,11 @@ interface ActivityConfig {
 }
 ```
 
+**Validation and safety rules:**
+- `pollingIntervalMs`, `btcPollingIntervalMs`, `powpegPollingIntervalMs`, and `flyoverPollingIntervalMs` are clamped to a minimum of `5000` ms.
+- `btcTxIds` and `powpegBtcTxIds` are normalized to lowercase and validated as 64-char hex txids.
+- Flyover `provider.apiBaseUrl` must be an absolute `http` or `https` URL.
+
 **Default endpoints by network:**
 
 | Network   | 2wp-api (PowPeg)                          | BTC Explorer                           |
@@ -139,6 +144,7 @@ type BridgeNotificationEvent =
 **Guarantees:**
 - No duplicate `itemCreated` events for the same `id`.
 - `completed` / `failed` / `refunded` fire only on the **first** transition to that terminal state.
+- Terminal events are transition-only and are **not** emitted for first-seen items that are already terminal.
 - At most one `statusChanged` event per item per polling cycle (net change only).
 
 ---
@@ -208,6 +214,7 @@ interface UseBridgeNotificationsResult {
 - `isLoading` is `true` during initial fetch and any in-flight poll.
 - `error` holds the last polling error; subsequent successful polls clear it.
 - `refresh()` triggers an immediate poll without altering the scheduled interval.
+- In-flight polling requests are cancelled on manager teardown/recreation via `AbortController`.
 
 ---
 
@@ -263,6 +270,8 @@ Multiple sources can observe the same underlying bridge transfer. The library me
 4. **Field merging**: The highest-precedence item's fields win, enriched by lower-precedence fields where the winner has `undefined`.
 
 5. **Sort order**: `items` is sorted by `updatedAt` descending, then `createdAt` descending, then `id` for stability.
+
+6. **Flyover expiry mapping**: `TimeForDepositElapsed` is normalized to `REFUNDED`.
 
 ---
 

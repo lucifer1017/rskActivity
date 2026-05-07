@@ -169,13 +169,13 @@ describe("normalizeFlyoverStatusToActivityItem", () => {
     expect(item.status).toBe("COMPLETED");
   });
 
-  it("TimeForDepositElapsed → FAILED status", () => {
+  it("TimeForDepositElapsed → REFUNDED status", () => {
     const item = normalizeFlyoverStatusToActivityItem({
       ...base,
       rawState: "TimeForDepositElapsed",
       simpleStatus: "FAILED",
     });
-    expect(item.status).toBe("FAILED");
+    expect(item.status).toBe("REFUNDED");
   });
 
   it("uses bridge:btc: id when btcTxId present", () => {

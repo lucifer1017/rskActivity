@@ -1,6 +1,7 @@
 import type { ActivityItem, ActivityStatus } from "../types/activity";
 import type { BtcTxStatus } from "../api/btcExplorerClient";
 import { makeActivityId } from "../utils/activityId";
+import { estimateEtaFromConfirmations } from "./eta";
 export function normalizeBtcTxStatusToActivityItem(
   status: BtcTxStatus
 ): ActivityItem {
@@ -23,9 +24,16 @@ export function normalizeBtcTxStatusToActivityItem(
     description,
     btcTxId: status.txid,
     btcBlockHeight: status.blockHeight,
-    confirmations: undefined,
-    requiredConfirmations: undefined,
-    etaMinutes: null,
+    confirmations: status.confirmations,
+    requiredConfirmations: status.confirmations != null ? 1 : undefined,
+    etaMinutes:
+      status.confirmations != null
+        ? estimateEtaFromConfirmations(
+            activityStatus,
+            status.confirmations,
+            1
+          )
+        : null,
     createdAt: nowIso,
     updatedAt: nowIso,
   };

@@ -1,5 +1,5 @@
 import type { ActivityItem } from "../types/activity";
-import type { FetchActivitiesFn } from "../core/pollingManager";
+import type { FetchActivitiesFn, PollRequestContext } from "../core/pollingManager";
 import {
   fetchPowpegStatusByBtcTxId,
   type PowpegClientOptions,
@@ -23,12 +23,15 @@ export function createPowpegFetchActivities(
 ): FetchActivitiesFn {
   const { btcTxIds, clientOptions } = config;
 
-  return async (): Promise<ActivityItem[]> => {
+  return async (context?: PollRequestContext): Promise<ActivityItem[]> => {
     if (!btcTxIds.length) return [];
 
     const settled = await Promise.allSettled(
       btcTxIds.map(async (txid) => {
-        const status = await fetchPowpegStatusByBtcTxId(txid, clientOptions);
+        const status = await fetchPowpegStatusByBtcTxId(txid, {
+          ...clientOptions,
+          signal: context?.signal,
+        });
         return status ? normalizePowpegStatusToActivityItem(status) : null;
       })
     );
@@ -49,18 +52,19 @@ export function createBtcFetchActivities(
 ): FetchActivitiesFn {
   const { txIds, clientOptions } = config;
 
-  return async (): Promise<ActivityItem[]> => {
+  return async (context?: PollRequestContext): Promise<ActivityItem[]> => {
     if (!txIds.length) return [];
 
     const settled = await Promise.allSettled(
-      txIds.map((txid) => fetchBtcTxStatus(txid, clientOptions))
+      txIds.map((txid) =>
+        fetchBtcTxStatus(txid, { ...clientOptions, signal: context?.signal })
+      )
     );
 
-    return settled.flatMap((result) =>
-      result.status === "fulfilled"
-        ? [normalizeBtcTxStatusToActivityItem(result.value)]
-        : []
-    );
+    return settled.flatMap((result) => {
+      if (result.status !== "fulfilled" || !result.value) return [];
+      return [normalizeBtcTxStatusToActivityItem(result.value)];
+    });
   };
 }
 
@@ -74,12 +78,15 @@ export function createFlyoverFetchActivities(
 ): FetchActivitiesFn {
   const { clientOptions, quoteHashes } = config;
 
-  return async (): Promise<ActivityItem[]> => {
+  return async (context?: PollRequestContext): Promise<ActivityItem[]> => {
     if (!quoteHashes.length) return [];
 
     const settled = await Promise.allSettled(
       quoteHashes.map((quoteHash) =>
-        fetchFlyoverPeginStatusByQuoteHash(quoteHash, clientOptions)
+        fetchFlyoverPeginStatusByQuoteHash(quoteHash, {
+          ...clientOptions,
+          signal: context?.signal,
+        })
       )
     );
 
